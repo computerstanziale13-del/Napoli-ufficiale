@@ -17,7 +17,20 @@ const {
     AttachmentBuilder
 } = require('discord.js');
 const axios = require('axios');
+const express = require('express');
 const config = require('./config.json');
+
+// --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('Il Bot di Naples Italy Roleplay è online e funzionante!');
+});
+
+app.listen(port, () => {
+    console.log(`🌐 Server web in ascolto sulla porta ${port}`);
+});
 
 const TRANSCRIPT_CHANNEL_ID = '1521562807051616448';
 const REVIEW_CHANNEL_ID = '1527384115522044075';
@@ -46,7 +59,8 @@ client.once('ready', async () => {
             .setDescription('Apre il modulo per sanzionare un utente su Roblox')
     ];
 
-    const rest = new REST({ version: '10' }).setToken(config.token);
+    const tokenToUse = process.env.TOKEN || config.token;
+    const rest = new REST({ version: '10' }).setToken(tokenToUse);
     try {
         await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
         console.log('✅ Comandi Slash registrati con successo!');
@@ -375,14 +389,14 @@ assistenza dal nostro staff. )
 
             const starsInput = new TextInputBuilder()
                 .setCustomId('review_stars')
-                .setLabel('Voto da 1 a 5 stelle') // Etichetta accorciata (< 45 caratteri)
+                .setLabel('Voto da 1 a 5 stelle')
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true)
                 .setMaxLength(1);
 
             const reasonInput = new TextInputBuilder()
                 .setCustomId('review_reason')
-                .setLabel('Motivo / Commento') // Etichetta accorciata (< 45 caratteri)
+                .setLabel('Motivo / Commento')
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true);
 
@@ -522,4 +536,5 @@ assistenza dal nostro staff. )
     }
 });
 
-client.login(config.token);
+const finalToken = process.env.TOKEN || config.token;
+client.login(finalToken);
