@@ -18,7 +18,25 @@ const {
 } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
-const config = require('./config.json');
+
+// Carica config.json se esiste (in locale), altrimenti usa le variabili d'ambiente di Render
+let config;
+try {
+    config = require('./config.json');
+} catch (e) {
+    config = {
+        token: process.env.TOKEN,
+        welcomeChannelId: process.env.WELCOME_CHANNEL_ID,
+        staffRoleId: process.env.STAFF_ROLE_ID,
+        ticketCategoryId: process.env.TICKET_CATEGORY_ID,
+        forumSanctionChannelId: process.env.FORUM_SANCTION_CHANNEL_ID,
+        channels: {
+            regolamento: process.env.REGOLAMENTO_CHANNEL_ID,
+            annunci: process.env.ANNUNCI_CHANNEL_ID,
+            partnership: process.env.PARTNERSHIP_CHANNEL_ID
+        }
+    };
+}
 
 // --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
 const app = express();
@@ -73,12 +91,17 @@ client.once('ready', async () => {
    1. MESSAGGIO DI BENVENUTO
    =================================================== */
 client.on('guildMemberAdd', async member => {
-    const channel = member.guild.channels.cache.get(config.welcomeChannelId);
+    const channelId = config.welcomeChannelId || process.env.WELCOME_CHANNEL_ID;
+    const channel = member.guild.channels.cache.get(channelId);
     if (!channel) return;
 
     const createdTimestamp = Math.floor(member.user.createdTimestamp / 1000);
     const joinedTimestamp = Math.floor(member.joinedTimestamp / 1000);
     const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24));
+
+    const regChannel = config.channels?.regolamento || process.env.REGOLAMENTO_CHANNEL_ID;
+    const annChannel = config.channels?.annunci || process.env.ANNUNCI_CHANNEL_ID;
+    const partChannel = config.channels?.partnership || process.env.PARTNERSHIP_CHANNEL_ID;
 
     const embed = new EmbedBuilder()
         .setColor('#1E88E5')
@@ -116,9 +139,9 @@ client.on('guildMemberAdd', async member => {
             },
             {
                 name: '🔗 GUIDA AI CANALI UTILI DA CONSULTARE',
-                value: `• <#${config.channels.regolamento}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
-                       `• <#${config.channels.annunci}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
-                       `• <#${config.channels.partnership}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
+                value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
+                       `• <#${annChannel}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
+                       `• <#${partChannel}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
                        `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Naples Italy Roleplay.*`,
                 inline: false
             }
@@ -270,7 +293,8 @@ assistenza dal nostro staff. )
         const currentDate = new Date().toLocaleDateString('it-IT');
         const sanctionText = `╔══════════════════════════════╗\n📋 SANZIONE UTENTE\n╚══════════════════════════════╝\n\n👤 Nome utente: ${rbxUser}\n\n🔨 Tipo di sanzione: ${type}\n\n📌 Motivo: ${reason}\n\n⏳ Durata: ${duration}\n\n👮 Staff Responsabile: ${interaction.user}\n\n📅 Data: ${currentDate}\n\n📎 Prove: ${proof}`;
 
-        const forumChannel = interaction.guild.channels.cache.get(config.forumSanctionChannelId);
+        const forumId = config.forumSanctionChannelId || process.env.FORUM_SANCTION_CHANNEL_ID;
+        const forumChannel = interaction.guild.channels.cache.get(forumId);
         if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
             return interaction.editReply({ content: '❌ Canale Forum per le sanzioni non trovato.' });
         }
@@ -291,19 +315,22 @@ assistenza dal nostro staff. )
         const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
         const categoryLabel = optionSelected.label;
 
+        const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+
         const permissionOverwrites = [
             { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
             { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
         ];
 
-        const staffRole = interaction.guild.roles.cache.get(config.staffRoleId);
+        const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
         if (staffRole) {
             permissionOverwrites.push({ id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] });
         }
 
         let categoryId = null;
-        if (config.ticketCategoryId) {
-            const catChannel = interaction.guild.channels.cache.get(config.ticketCategoryId);
+        const catIdToUse = config.ticketCategoryId || process.env.TICKET_CATEGORY_ID;
+        if (catIdToUse) {
+            const catChannel = interaction.guild.channels.cache.get(catIdToUse);
             if (catChannel && catChannel.type === ChannelType.GuildCategory) categoryId = catChannel.id;
         }
 
@@ -411,7 +438,8 @@ assistenza dal nostro staff. )
 
         await interaction.deferReply({ ephemeral: true });
 
-        const isStaff = interaction.member && (interaction.member.roles.cache.has(config.staffRoleId) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
+        const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+        const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
         if (!isStaff) {
             return await interaction.editReply({ content: '❌ Non hai i permessi per gestire i ticket!' });
         }
