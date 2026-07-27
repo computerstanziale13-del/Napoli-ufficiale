@@ -43,7 +43,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('Il Bot di Naples Italy Roleplay è online e funzionante!');
+    res.send('Il Bot di Italian Life RP è online e funzionante!');
 });
 
 app.listen(port, () => {
@@ -53,6 +53,7 @@ app.listen(port, () => {
 const TRANSCRIPT_CHANNEL_ID = '1521562807051616448';
 const REVIEW_CHANNEL_ID = '1527384115522044075';
 const SANCTION_ROLE_ID = '1518557087347638403';
+const NEW_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1531402756269805770/1531402786598682824/IMG_2695.png?ex=6a69157c&is=6a67c3fc&hm=b39a6f487454937505d86f1c7180b0d0bddaa16e3c3e1f603ed24951fc392345&';
 
 const client = new Client({
     intents: [
@@ -105,14 +106,14 @@ client.on('guildMemberAdd', async member => {
 
     const embed = new EmbedBuilder()
         .setColor('#1E88E5')
-        .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Naples Italy Roleplay ✨`)
+        .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Life RP ✨`)
         .setDescription(
             `🤝 **Benvenuto in Città, ${member.user.username}!**\n\n` +
-            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Naples Italy Roleplay**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destiny, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
+            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Life RP**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destiny, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
             `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra isola felice.\n\n` +
             `──────────────────────────`
         )
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+        .setThumbnail(NEW_IMAGE_URL)
         .addFields(
             {
                 name: '📝 SCHEDA ANAGRAFICA CITTADINO',
@@ -142,11 +143,11 @@ client.on('guildMemberAdd', async member => {
                 value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
                        `• <#${annChannel}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
                        `• <#${partChannel}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
-                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Naples Italy Roleplay.*`,
+                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Italian Life RP.*`,
                 inline: false
             }
         )
-        .setFooter({ text: 'Naples Italy Roleplay • Divertiti e rispetta le regole!' });
+        .setFooter({ text: 'Italian Life RP • Divertiti e rispetta le regole!' });
 
     await channel.send({ content: `🎉 **Un caloroso benvenuto a ${member}! Unisciti a noi!**`, embeds: [embed] });
 });
@@ -163,10 +164,10 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             const descriptionText = 
-`### Naples Italy Roleplay
+`### Italian Life RP
 ## Sistema Supporto Ufficiale
 
-<:gradi_alti:1524465497519685723> | **Naples Italy Roleplay — Sistema Ticket**
+<:gradi_alti:1524465497519685723> | **Italian Life RP — Sistema Ticket**
 
 \`\`\`
 ( ✦ SUPPORTO UFFICIALE
@@ -215,12 +216,12 @@ assistenza dal nostro staff. )
 🟢 \`10 Disponibili\`
 👤 \`17 Totali\`
 
-⏰ \`Naples Italy Roleplay | Sistema Ticket Ufficiale\`
-**Naples Italy Roleplay — Supporto in Tempo Reale**`;
+⏰ \`Italian Life RP | Sistema Ticket Ufficiale\`
+**Italian Life RP — Supporto in Tempo Reale**`;
 
             const embed = new EmbedBuilder()
                 .setDescription(descriptionText)
-                .setThumbnail('https://cdn.discordapp.com/attachments/1529926893825036398/1529929076251295935/Screenshot_2026-07-23-01-27-36-576_com.discord-edit.jpg?ex=6a63b8fc&is=6a62677c&hm=01ff830a49a98363bbae6da6d28fd22899740d77c163533eff10aead05afb4b0&')
+                .setThumbnail(NEW_IMAGE_URL)
                 .setColor('#2B2D31');
 
             const selectMenu = new StringSelectMenuBuilder()
