@@ -65,6 +65,15 @@ const client = new Client({
     ]
 });
 
+// --- GESTIONE ERRORI GLOBALI PER EVITARE CRASH (EXIT CODE 1) ---
+client.on('error', error => {
+    console.error('⚠️ Errore del client Discord catturato:', error);
+});
+
+process.on('unhandledRejection', error => {
+    console.error('⚠️ Promessa non gestita catturata:', error);
+});
+
 client.once('ready', async () => {
     console.log(`🤖 Bot avviato con successo come ${client.user.tag}`);
 
