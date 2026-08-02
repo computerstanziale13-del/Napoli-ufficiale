@@ -43,7 +43,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('Il Bot di Italian Life RP è online e funzionante!');
+    res.send('Il Bot di Italian Country RP è online e funzionante!');
 });
 
 app.listen(port, () => {
@@ -115,11 +115,11 @@ client.on('guildMemberAdd', async member => {
 
     const embed = new EmbedBuilder()
         .setColor('#1E88E5')
-        .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Life RP ✨`)
+        .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Country RP ✨`)
         .setDescription(
             `🤝 **Benvenuto in Città, ${member.user.username}!**\n\n` +
-            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Life RP**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destiny, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
-            `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra isola felice.\n\n` +
+            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Country RP**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destino, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
+            `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra community.\n\n` +
             `──────────────────────────`
         )
         .setThumbnail(NEW_IMAGE_URL)
@@ -141,7 +141,7 @@ client.on('guildMemberAdd', async member => {
             },
             {
                 name: '🗺️ PRIMI PASSI E LINEE GUIDA ESSENZIALI',
-                value: `Per evitare spiacenti sanzioni administrative o corporali durante le sessioni di gioco, ti invitiamo caldamente a seguire la scaletta d'inserimento:\n\n` +
+                value: `Per evitare sanzioni amministrative o corporali durante le sessioni di gioco, ti invitiamo caldamente a seguire la scaletta d'inserimento:\n\n` +
                        `1️⃣ **Consulta i Documenti Civili:** La conoscenza delle regole è fondamentale per una convivenza civile e divertente.\n` +
                        `2️⃣ **Resta Aggiornato:** Attiva le notifiche sui canali principali per non perderti nessun annuncio da parte dei Gradi Alti.\n` +
                        `3️⃣ **Apri un Ticket se necessiti d'aiuto:** Lo staff è costantemente a tua disposizione nel centro d'assistenza dedicato.`,
@@ -152,11 +152,11 @@ client.on('guildMemberAdd', async member => {
                 value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
                        `• <#${annChannel}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
                        `• <#${partChannel}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
-                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Italian Life RP.*`,
+                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Italian Country RP.*`,
                 inline: false
             }
         )
-        .setFooter({ text: 'Italian Life RP • Divertiti e rispetta le regole!' });
+        .setFooter({ text: 'Italian Country RP • Divertiti e rispetta le regole!' });
 
     await channel.send({ content: `🎉 **Un caloroso benvenuto a ${member}! Unisciti a noi!**`, embeds: [embed] });
 });
@@ -173,10 +173,10 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             const descriptionText = 
-`### Italian Life RP
+`### Italian Country RP
 ## Sistema Supporto Ufficiale
 
-<:gradi_alti:1524465497519685723> | **Italian Life RP — Sistema Ticket**
+<:gradi_alti:1524465497519685723> | **Italian Country RP — Sistema Ticket**
 
 \`\`\`
 ( ✦ SUPPORTO UFFICIALE
@@ -225,8 +225,8 @@ assistenza dal nostro staff. )
 🟢 \`10 Disponibili\`
 👤 \`17 Totali\`
 
-⏰ \`Italian Life RP | Sistema Ticket Ufficiale\`
-**Italian Life RP — Supporto in Tempo Reale**`;
+⏰ \`Italian Country RP | Sistema Ticket Ufficiale\`
+**Italian Country RP — Supporto in Tempo Reale**`;
 
             const embed = new EmbedBuilder()
                 .setDescription(descriptionText)
@@ -403,7 +403,7 @@ assistenza dal nostro staff. )
 
     // --- 2.5 PULSANTI DI GESTIONE TICKET ---
     if (interaction.isButton()) {
-        const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny'];
+        const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny', 'ticket_acknowledge_close'];
         if (!validActions.includes(interaction.customId)) return;
 
         // Gestione accettazione o rifiuto recensione dai DM
@@ -446,6 +446,14 @@ assistenza dal nostro staff. )
             return;
         }
 
+        // Pulsante "Prendi visione" per la chiusura del ticket
+        if (interaction.customId === 'ticket_acknowledge_close') {
+            await interaction.deferUpdate();
+            await interaction.channel.send({ content: '🔒 Chiusura del ticket in corso e invio richiesta recensione...' });
+            await chiudiTicketProcesso(interaction);
+            return;
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
@@ -463,7 +471,16 @@ assistenza dal nostro staff. )
             }
 
             await interaction.channel.setTopic(`Claimed: ${interaction.user.id}`).catch(() => {});
-            return await interaction.editReply({ content: `📌 Ticket preso in carico con successo da ${interaction.user}!` });
+            await interaction.editReply({ content: '📌 Ticket preso in carico con successo!' });
+
+            const claimEmbed = new EmbedBuilder()
+                .setTitle('📌 TICKET PRESO IN CARICO')
+                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff per evitare interferenze o confusioni durante l'assistenza.`)
+            .setColor('#2ECC71')
+            .setTimestamp();
+
+            await interaction.channel.send({ embeds: [claimEmbed] });
+            return;
         }
 
         // 2. RILASCIA
@@ -478,101 +495,126 @@ assistenza dal nostro staff. )
             }
 
             await interaction.channel.setTopic('').catch(() => {});
-            return await interaction.editReply({ content: `🔓 Ticket rilasciato con successo da ${interaction.user}.` });
+            await interaction.editReply({ content: '🔓 Ticket rilasciato con successo.' });
+
+            const releaseEmbed = new EmbedBuilder()
+                .setTitle('🔓 TICKET RILASCIATO')
+                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile e può essere presa in carico da qualsiasi altro membro dello staff.`)
+            .setColor('#95A5A6')
+            .setTimestamp();
+
+            await interaction.channel.send({ embeds: [releaseEmbed] });
+            return;
         }
 
-        // 3. CHIUDI TICKET
+        // 3. CHIUDI TICKET (Messaggio di avviso con pulsante "Prendi visione")
         if (interaction.customId === 'ticket_close') {
-            await interaction.editReply({ content: '🔒 Chiusura del ticket in corso e invio richiesta recensione...' });
+            await interaction.editReply({ content: '⚠️ Richiesta di chiusura avviata. Controlla il messaggio nel canale.' });
 
-            try {
-                const messages = await interaction.channel.messages.fetch({ limit: 100 });
-                const sortedMessages = Array.from(messages.values()).reverse();
+            const warningEmbed = new EmbedBuilder()
+                .setTitle('⚠️ AVVISO DI CHIUSURA TICKET')
+                .setDescription(`Questo ticket sta per essere chiuso da ${interaction.user}.\n\nSi prega di prendere visione di tutte le informazioni fornite prima di procedere con l'archiviazione definitiva. Clicca sul pulsante sottostante per confermare la presa visione.`)
+                .setColor('#E67E22')
+                .setTimestamp();
 
-                let ticketCreatorId = null;
-                const firstMsg = sortedMessages.find(m => m.embeds.length > 0 && m.embeds[0].title?.startsWith('🎫 Ticket:'));
-                if (firstMsg) {
-                    const userField = firstMsg.embeds[0].fields.find(f => f.name.includes('Utente'));
-                    if (userField) {
-                        const match = userField.value.match(/<@!?(\d+)>/);
-                        if (match) ticketCreatorId = match[1];
-                    }
-                }
+            const ackButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_acknowledge_close').setLabel('Prendi visione').setStyle(ButtonStyle.Primary)
+            );
 
-                let claimedStaffId = 'Nessuno';
-                if (topic.startsWith('Claimed:')) {
-                    claimedStaffId = topic.replace('Claimed:', '').trim();
-                }
-
-                let transcriptText = `--- TRANSCRIPT TICKET: ${interaction.channel.name} ---\n`;
-                transcriptText += `Chiuso da: ${interaction.user.tag} (${interaction.user.id})\n`;
-                transcriptText += `Staffer Assegnato: ${claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno'}\n`;
-                transcriptText += `Data: ${new Date().toLocaleString('it-IT')}\n`;
-                transcriptText += `--------------------------------------------------------\n\n`;
-
-                sortedMessages.forEach(msg => {
-                    const time = new Date(msg.createdTimestamp).toLocaleString('it-IT');
-                    transcriptText += `[${time}] ${msg.author.tag}: ${msg.content}\n`;
-                    if (msg.attachments.size > 0) {
-                        msg.attachments.forEach(att => {
-                            transcriptText += `   [Allegato: ${att.url}]\n`;
-                        });
-                    }
-                });
-
-                const buffer = Buffer.from(transcriptText, 'utf-8');
-                const attachment = new AttachmentBuilder(buffer, { name: `transcript-${interaction.channel.name}.txt` });
-                const transcriptChannel = interaction.guild.channels.cache.get(TRANSCRIPT_CHANNEL_ID);
-
-                if (transcriptChannel) {
-                    const logEmbed = new EmbedBuilder()
-                        .setTitle(`📄 Transcript Ticket Chiuso`)
-                        .addFields(
-                            { name: 'Canale', value: interaction.channel.name, inline: true },
-                            { name: 'Chiuso da', value: `${interaction.user}`, inline: true },
-                            { name: 'Staffer', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: true }
-                        )
-                        .setColor('#E74C3C')
-                        .setTimestamp();
-
-                    await transcriptChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(() => {});
-                }
-
-                if (ticketCreatorId) {
-                    try {
-                        const ticketUser = await interaction.client.users.fetch(ticketCreatorId);
-                        if (ticketUser) {
-                            const reviewEmbed = new EmbedBuilder()
-                                .setTitle('✨ Il tuo ticket è stato chiuso!')
-                                .setDescription(`Il tuo ticket su **${interaction.guild.name}** è stato chiuso.\nTi va di lasciare una recensione per valutare il supporto ricevuto?`)
-                                .addFields(
-                                    { name: '👮 Staffer Assegnato', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: false }
-                                )
-                                .setColor('#3498DB')
-                                .setFooter({ text: 'Clicca su Accetta per lasciare una valutazione.' });
-
-                            const reviewButtons = new ActionRowBuilder().addComponents(
-                                new ButtonBuilder().setCustomId('review_accept').setLabel('Accetta').setStyle(ButtonStyle.Success),
-                                new ButtonBuilder().setCustomId('review_deny').setLabel('Rifiuta').setStyle(ButtonStyle.Danger)
-                            );
-
-                            await ticketUser.send({ embeds: [reviewEmbed], components: [reviewButtons] }).catch(() => {});
-                        }
-                    } catch (dmErr) {
-                        console.error('Impossibile inviare il DM all\'utente per la recensione:', dmErr);
-                    }
-                }
-
-                setTimeout(async () => {
-                    await interaction.channel.delete().catch(() => {});
-                }, 3000);
-            } catch (error) {
-                console.error('Errore chiusura ticket:', error);
-            }
+            await interaction.channel.send({ embeds: [warningEmbed], components: [ackButton] });
             return;
         }
     }
 });
+
+// Funzione ausiliaria per la chiusura effettiva del ticket e salvataggio transcript
+async function chiudiTicketProcesso(interaction) {
+    const topic = interaction.channel.topic || '';
+    try {
+        const messages = await interaction.channel.messages.fetch({ limit: 100 });
+        const sortedMessages = Array.from(messages.values()).reverse();
+
+        let ticketCreatorId = null;
+        const firstMsg = sortedMessages.find(m => m.embeds.length > 0 && m.embeds[0].title?.startsWith('🎫 Ticket:'));
+        if (firstMsg) {
+            const userField = firstMsg.embeds[0].fields.find(f => f.name.includes('Utente'));
+            if (userField) {
+                const match = userField.value.match(/<@!?(\d+)>/);
+                if (match) ticketCreatorId = match[1];
+            }
+        }
+
+        let claimedStaffId = 'Nessuno';
+        if (topic.startsWith('Claimed:')) {
+            claimedStaffId = topic.replace('Claimed:', '').trim();
+        }
+
+        let transcriptText = `--- TRANSCRIPT TICKET: ${interaction.channel.name} ---\n`;
+        transcriptText += `Chiuso da: ${interaction.user.tag} (${interaction.user.id})\n`;
+        transcriptText += `Staffer Assegnato: ${claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno'}\n`;
+        transcriptText += `Data: ${new Date().toLocaleString('it-IT')}\n`;
+        transcriptText += `--------------------------------------------------------\n\n`;
+
+        sortedMessages.forEach(msg => {
+            const time = new Date(msg.createdTimestamp).toLocaleString('it-IT');
+            transcriptText += `[${time}] ${msg.author.tag}: ${msg.content}\n`;
+            if (msg.attachments.size > 0) {
+                msg.attachments.forEach(att => {
+                    transcriptText += `   [Allegato: ${att.url}]\n`;
+                });
+            }
+        });
+
+        const buffer = Buffer.from(transcriptText, 'utf-8');
+        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${interaction.channel.name}.txt` });
+        const transcriptChannel = interaction.guild.channels.cache.get(TRANSCRIPT_CHANNEL_ID);
+
+        if (transcriptChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setTitle(`📄 Transcript Ticket Chiuso`)
+                .addFields(
+                    { name: 'Canale', value: interaction.channel.name, inline: true },
+                    { name: 'Chiuso da', value: `${interaction.user}`, inline: true },
+                    { name: 'Staffer', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: true }
+                )
+                .setColor('#E74C3C')
+                .setTimestamp();
+
+            await transcriptChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(() => {});
+        }
+
+        if (ticketCreatorId) {
+            try {
+                const ticketUser = await interaction.client.users.fetch(ticketCreatorId);
+                if (ticketUser) {
+                    const reviewEmbed = new EmbedBuilder()
+                        .setTitle('✨ Il tuo ticket è stato chiuso!')
+                        .setDescription(`Il tuo ticket su **${interaction.guild.name}** è stato chiuso.\nTi va di lasciare una recensione per valutare il supporto ricevuto?`)
+                        .addFields(
+                            { name: '👮 Staffer Assegnato', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: false }
+                        )
+                        .setColor('#3498DB')
+                        .setFooter({ text: 'Clicca su Accetta per lasciare una valutazione.' });
+
+                    const reviewButtons = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('review_accept').setLabel('Accetta').setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId('review_deny').setLabel('Rifiuta').setStyle(ButtonStyle.Danger)
+                    );
+
+                    await ticketUser.send({ embeds: [reviewEmbed], components: [reviewButtons] }).catch(() => {});
+                }
+            } catch (dmErr) {
+                console.error('Impossibile inviare il DM all\'utente per la recensione:', dmErr);
+            }
+        }
+
+        setTimeout(async () => {
+            await interaction.channel.delete().catch(() => {});
+        }, 3000);
+    } catch (error) {
+        console.error('Errore chiusura ticket:', error);
+    }
+}
 
 const finalToken = process.env.TOKEN || config.token;
 client.login(finalToken);
