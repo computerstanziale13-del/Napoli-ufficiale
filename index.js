@@ -122,7 +122,7 @@ client.on('guildMemberAdd', async member => {
             `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra community.\n\n` +
             `──────────────────────────`
         )
-        .setThumbnail(NEW_IMAGE_URL)
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
         .addFields(
             {
                 name: '📝 SCHEDA ANAGRAFICA CITTADINO',
@@ -476,8 +476,8 @@ assistenza dal nostro staff. )
             const claimEmbed = new EmbedBuilder()
                 .setTitle('📌 TICKET PRESO IN CARICO')
                 .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff per evitare interferenze o confusioni durante l'assistenza.`)
-            .setColor('#2ECC71')
-            .setTimestamp();
+                .setColor('#2ECC71')
+                .setTimestamp();
 
             await interaction.channel.send({ embeds: [claimEmbed] });
             return;
@@ -500,8 +500,8 @@ assistenza dal nostro staff. )
             const releaseEmbed = new EmbedBuilder()
                 .setTitle('🔓 TICKET RILASCIATO')
                 .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile e può essere presa in carico da qualsiasi altro membro dello staff.`)
-            .setColor('#95A5A6')
-            .setTimestamp();
+                .setColor('#95A5A6')
+                .setTimestamp();
 
             await interaction.channel.send({ embeds: [releaseEmbed] });
             return;
