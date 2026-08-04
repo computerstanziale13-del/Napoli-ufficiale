@@ -14,7 +14,8 @@ const {
     REST, 
     Routes,
     SlashCommandBuilder,
-    AttachmentBuilder
+    AttachmentBuilder,
+    MessageFlags
 } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
@@ -74,7 +75,7 @@ process.on('unhandledRejection', error => {
     console.error('⚠️ Promessa non gestita catturata:', error);
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`🤖 Bot avviato con successo come ${client.user.tag}`);
 
     const commands = [
@@ -170,7 +171,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
 
         if (interaction.commandName === 'setup-ticket') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
             const descriptionText = 
 `### Italian Country RP
@@ -255,7 +256,7 @@ assistenza dal nostro staff. )
             const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
 
             if (!hasRole && !isAdmin) {
-                return interaction.reply({ content: '❌ Non hai il ruolo autorizzato per utilizzare questo comando!', ephemeral: true });
+                return interaction.reply({ content: '❌ Non hai il ruolo autorizzato per utilizzare questo comando!', flags: [MessageFlags.Ephemeral] });
             }
 
             const modal = new ModalBuilder().setCustomId('sanzione_modal').setTitle('Sanzione Utente Roblox');
@@ -280,7 +281,7 @@ assistenza dal nostro staff. )
 
     // --- 2.2 INVIO MODALE SANZIONI ---
     if (interaction.isModalSubmit() && interaction.customId === 'sanzione_modal') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const rbxUser = interaction.fields.getTextInputValue('roblox_username');
         const type = interaction.fields.getTextInputValue('sanzione_type');
@@ -319,7 +320,7 @@ assistenza dal nostro staff. )
 
     // --- 2.3 SELEZIONE CATEGORIA TICKET ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const selectedValue = interaction.values[0];
         const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
@@ -375,7 +376,7 @@ assistenza dal nostro staff. )
 
     // --- 2.4 GESTIONE MODALE RECENSIONE ---
     if (interaction.isModalSubmit() && interaction.customId.startsWith('review_modal_')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const staffId = interaction.customId.replace('review_modal_', '');
         const stars = interaction.fields.getTextInputValue('review_stars');
@@ -452,7 +453,7 @@ assistenza dal nostro staff. )
             return;
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
         const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
@@ -554,7 +555,7 @@ async function chiudiTicketProcesso(interaction) {
             transcriptText += `[${time}] ${msg.author.tag}: ${msg.content}\n`;
             if (msg.attachments.size > 0) {
                 msg.attachments.forEach(att => {
-                    transcriptText += `   [Allegato: ${att.url}]\n`;
+                    transcriptText += `    [Allegato: ${att.url}]\n`;
                 });
             }
         });
