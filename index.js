@@ -14,12 +14,12 @@ const {
     REST, 
     Routes,
     SlashCommandBuilder,
-    AttachmentBuilder,
-    MessageFlags // <-- AGGIUNTO QUESTO
+    AttachmentBuilder
 } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
 
+// Carica config.json se esiste (in locale), altrimenti usa le variabili d'ambiente di Render
 let config;
 try {
     config = require('./config.json');
@@ -38,9 +38,9 @@ try {
     };
 }
 
-// --- SERVER EXPRESS PER L'HOSTING (RENDER) ---
+// --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
     res.send('Il Bot di Italian Country RP è online e funzionante!');
@@ -65,6 +65,7 @@ const client = new Client({
     ]
 });
 
+// --- GESTIONE ERRORI GLOBALI PER EVITARE CRASH ---
 client.on('error', error => {
     console.error('⚠️ Errore del client Discord catturato:', error);
 });
@@ -100,35 +101,64 @@ client.once('ready', async () => {
    1. MESSAGGIO DI BENVENUTO
    =================================================== */
 client.on('guildMemberAdd', async member => {
-    try {
-        const channelId = config.welcomeChannelId || process.env.WELCOME_CHANNEL_ID;
-        const channel = member.guild.channels.cache.get(channelId);
-        if (!channel) return;
+    const channelId = config.welcomeChannelId || process.env.WELCOME_CHANNEL_ID;
+    const channel = member.guild.channels.cache.get(channelId);
+    if (!channel) return;
 
-        const createdTimestamp = Math.floor(member.user.createdTimestamp / 1000);
-        const joinedTimestamp = Math.floor(member.joinedTimestamp / 1000);
-        const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24));
+    const createdTimestamp = Math.floor(member.user.createdTimestamp / 1000);
+    const joinedTimestamp = Math.floor(member.joinedTimestamp / 1000);
+    const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24));
 
-        const regChannel = config.channels?.regolamento || process.env.REGOLAMENTO_CHANNEL_ID;
-        const annChannel = config.channels?.annunci || process.env.ANNUNCI_CHANNEL_ID;
-        const partChannel = config.channels?.partnership || process.env.PARTNERSHIP_CHANNEL_ID;
+    const regChannel = config.channels?.regolamento || process.env.REGOLAMENTO_CHANNEL_ID;
+    const annChannel = config.channels?.annunci || process.env.ANNUNCI_CHANNEL_ID;
+    const partChannel = config.channels?.partnership || process.env.PARTNERSHIP_CHANNEL_ID;
 
-        const embed = new EmbedBuilder()
-            .setColor('#1E88E5')
-            .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Country RP ✨`)
-            .setDescription(`🤝 **Benvenuto in Città, ${member.user.username}!**\n\nCiao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Country RP**!\n\n──────────────────────────`)
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
-            .addFields(
-                { name: '📝 SCHEDA ANAGRAFICA CITTADINO', value: `👤 **Nome Identificativo:** \`${member.user.username}\`\n🆔 **ID Discord Univoco:** \`${member.id}\`\n📊 **Registrazione Cittadini:** Sei il cittadino numero \`#${member.guild.memberCount}\``, inline: false },
-                { name: '🛡️ VERIFICA SICUREZZA ACCOUNT', value: `📅 **Data Creazione Profilo:** <t:${createdTimestamp}:F>\n⏳ **Anzianità Account:** \`${accountAgeDays} giorni\`.\n⏰ **Immigrazione in Città:** <t:${joinedTimestamp}:F>`, inline: false },
-                { name: '🔗 GUIDA AI CANALI UTILI', value: `• <#${regChannel}> — 📖 Regolamento\n• <#${annChannel}> — 📢 Annunci\n• <#${partChannel}> — 🤝 Partnership`, inline: false }
-            )
-            .setFooter({ text: 'Italian Country RP • Divertiti e rispetta le regole!' });
+    const embed = new EmbedBuilder()
+        .setColor('#1E88E5')
+        .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Country RP ✨`)
+        .setDescription(
+            `🤝 **Benvenuto in Città, ${member.user.username}!**\n\n` +
+            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Country RP**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destino, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
+            `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra community.\n\n` +
+            `──────────────────────────`
+        )
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
+        .addFields(
+            {
+                name: '📝 SCHEDA ANAGRAFICA CITTADINO',
+                value: `👤 **Nome Identificativo:** \`${member.user.username}\`\n` +
+                       `🆔 **ID Discord Univoco:** \`${member.id}\`\n` +
+                       `📊 **Registrazione Cittadini:** Sei il cittadino numero \`#${member.guild.memberCount}\``,
+                inline: false
+            },
+            {
+                name: '🛡️ VERIFICA SICUREZZA ACCOUNT',
+                value: `📅 **Data Creazione Profilo:** <t:${createdTimestamp}:F>\n` +
+                       `⏳ **Anzianità Account:** Il tuo profilo Discord è attivo da \`${accountAgeDays} giorni\`.\n` +
+                       `⏰ **Immigrazione in Città:** <t:${joinedTimestamp}:F>\n\n` +
+                       `──────────────────────────`,
+                inline: false
+            },
+            {
+                name: '🗺️ PRIMI PASSI E LINEE GUIDA ESSENZIALI',
+                value: `Per evitare sanzioni amministrative o corporali durante le sessioni di gioco, ti invitiamo caldamente a seguire la scaletta d'inserimento:\n\n` +
+                       `1️⃣ **Consulta i Documenti Civili:** La conoscenza delle regole è fondamentale per una convivenza civile e divertente.\n` +
+                       `2️⃣ **Resta Aggiornato:** Attiva le notifiche sui canali principali per non perderti nessun annuncio da parte dei Gradi Alti.\n` +
+                       `3️⃣ **Apri un Ticket se necessiti d'aiuto:** Lo staff è costantemente a tua disposizione nel centro d'assistenza dedicato.`,
+                inline: false
+            },
+            {
+                name: '🔗 GUIDA AI CANALI UTILI DA CONSULTARE',
+                value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
+                       `• <#${annChannel}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
+                       `• <#${partChannel}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
+                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Italian Country RP.*`,
+                inline: false
+            }
+        )
+        .setFooter({ text: 'Italian Country RP • Divertiti e rispetta le regole!' });
 
-        await channel.send({ content: `🎉 **Un caloroso benvenuto a ${member}!**`, embeds: [embed] });
-    } catch (e) {
-        console.error("Errore nel messaggio di benvenuto:", e);
-    }
+    await channel.send({ content: `🎉 **Un caloroso benvenuto a ${member}! Unisciti a noi!**`, embeds: [embed] });
 });
 
 /* ===================================================
@@ -138,223 +168,445 @@ client.on('interactionCreate', async interaction => {
     
     // --- 2.1 COMANDI SLASH ---
     if (interaction.isChatInputCommand()) {
-        try {
-            if (interaction.commandName === 'setup-ticket') {
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // FIX APPLICATO QUI
-                const descriptionText = `### Italian Country RP\n## Sistema Supporto Ufficiale\nSeleziona la categoria per ricevere assistenza.`;
-                const embed = new EmbedBuilder().setDescription(descriptionText).setThumbnail(NEW_IMAGE_URL).setColor('#2B2D31');
 
-                const selectMenu = new StringSelectMenuBuilder()
-                    .setCustomId('ticket_select')
-                    .setPlaceholder('Seleziona la categoria del ticket...')
-                    .addOptions([
-                        { label: 'Assistenza Gradi Alti', value: 'gradi-alti', emoji: { id: '1524465497519685723' } },
-                        { label: 'Segnalazione bug', value: 'bug', emoji: { id: '1524464370594222242' } },
-                        { label: 'Assistenza Game', value: 'game', emoji: { id: '1524465235014979604' } },
-                        { label: 'Gestione', value: 'gestione', emoji: { id: '1524465990635884597' } },
-                        { label: 'Richiesta partnership', value: 'partnership', emoji: { id: '1521589317854691504' } }
-                    ]);
+        if (interaction.commandName === 'setup-ticket') {
+            await interaction.deferReply({ ephemeral: true });
 
-                const row = new ActionRowBuilder().addComponents(selectMenu);
-                await interaction.channel.send({ embeds: [embed], components: [row] });
-                await interaction.editReply({ content: '✅ Pannello ticket inviato con successo!' });
-                return;
-            }
+            const descriptionText = 
+`### Italian Country RP
+## Sistema Supporto Ufficiale
 
-            if (interaction.commandName === 'sanzione') {
-                const hasRole = interaction.member.roles.cache.has(SANCTION_ROLE_ID);
-                const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+<:gradi_alti:1524465497519685723> | **Italian Country RP — Sistema Ticket**
 
-                if (!hasRole && !isAdmin) {
-                    return interaction.reply({ content: '❌ Non hai i permessi!', flags: MessageFlags.Ephemeral }); // FIX APPLICATO QUI
-                }
+\`\`\`
+( ✦ SUPPORTO UFFICIALE
+Seleziona la categoria per ricevere
+assistenza dal nostro staff. )
+\`\`\`
+\`\`\`
+(──────────────────────────)
+\`\`\`
 
-                const modal = new ModalBuilder().setCustomId('sanzione_modal').setTitle('Sanzione Utente Roblox');
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('roblox_username').setLabel('Nome utente Roblox').setStyle(TextInputStyle.Short).setRequired(true)),
-                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('sanzione_type').setLabel('Tipo (Warn / Ban)').setStyle(TextInputStyle.Short).setRequired(true)),
-                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('sanzione_reason').setLabel('Motivo').setStyle(TextInputStyle.Paragraph).setRequired(true)),
-                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('sanzione_duration').setLabel('Durata').setStyle(TextInputStyle.Short).setRequired(true)),
-                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('sanzione_proof').setLabel('Prove (Link)').setStyle(TextInputStyle.Paragraph).setRequired(true))
-                );
+<:gradi_alti:1524465497519685723>
+\`\`\`
+( | Assistenza Gradi Alti
+> Priorità massima: blacklist, decisioni strategiche e questioni amministrative critiche. )
+\`\`\`
 
-                await interaction.showModal(modal);
-                return;
-            }
-        } catch (e) {
-            console.error('Errore nel comando slash:', e);
+<:game:1524465235014979604>
+\`\`\`
+( | Assistenza Game
+> Supporto in-game, dubbi sul regolamento e segnalazioni urgenti. )
+\`\`\`
+
+<:partnership:1521589317854691504>
+\`\`\`
+( | Partnership
+> Richieste di collaborazione ufficiale tra server. (Includere info e requisiti). )
+\`\`\`
+
+<:bug:1524464370594222242>
+\`\`\`
+( | Bug Report
+> Segnalazioni malfunzionamenti. (Allegare sempre prove/screenshot). )
+\`\`\`
+
+<:gestione:1524465990635884597>
+\`\`\`
+( | Gestione
+> Reclami, contestazioni sanzioni e segnalazioni gravi. (Allegare ID e prove video). )
+\`\`\`
+
+\`\`\`
+(──────────────────────────)
+\`\`\`
+
+👤 **Staff Disponibili**
+🟢 \`10 Disponibili\`
+👤 \`17 Totali\`
+
+⏰ \`Italian Country RP | Sistema Ticket Ufficiale\`
+**Italian Country RP — Supporto in Tempo Reale**`;
+
+            const embed = new EmbedBuilder()
+                .setDescription(descriptionText)
+                .setThumbnail(NEW_IMAGE_URL)
+                .setColor('#2B2D31');
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('ticket_select')
+                .setPlaceholder('Seleziona la categoria del ticket...')
+                .addOptions([
+                    { label: 'Assistenza Gradi Alti', value: 'gradi-alti', emoji: { id: '1524465497519685723' } },
+                    { label: 'Segnalazione bug', value: 'bug', emoji: { id: '1524464370594222242' } },
+                    { label: 'Assistenza Game', value: 'game', emoji: { id: '1524465235014979604' } },
+                    { label: 'Gestione', value: 'gestione', emoji: { id: '1524465990635884597' } },
+                    { label: 'Richiesta partnership', value: 'partnership', emoji: { id: '1521589317854691504' } }
+                ]);
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            await interaction.channel.send({ embeds: [embed], components: [row] });
+            await interaction.editReply({ content: '✅ Pannello ticket inviato con successo!' });
+            return;
         }
-    }
 
-    // --- 2.2 MODALI ---
-    if (interaction.isModalSubmit()) {
-        try {
-            if (interaction.customId === 'sanzione_modal') {
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // FIX APPLICATO QUI
-                const rbxUser = interaction.fields.getTextInputValue('roblox_username');
-                const type = interaction.fields.getTextInputValue('sanzione_type');
-                const reason = interaction.fields.getTextInputValue('sanzione_reason');
-                const duration = interaction.fields.getTextInputValue('sanzione_duration');
-                const proof = interaction.fields.getTextInputValue('sanzione_proof');
+        if (interaction.commandName === 'sanzione') {
+            const hasRole = interaction.member.roles.cache.has(SANCTION_ROLE_ID);
+            const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
 
-                let avatarUrl = '';
-                try {
-                    const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [rbxUser], excludeBannedUsers: false }, { timeout: 4000 });
-                    if (userRes.data.data.length > 0) {
-                        const userId = userRes.data.data[0].id;
-                        const headshotRes = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`, { timeout: 4000 });
-                        if (headshotRes.data.data.length > 0) avatarUrl = headshotRes.data.data[0].imageUrl;
-                    }
-                } catch (e) {
-                    console.error('Errore avatar Roblox:', e.message);
-                }
-
-                const forumId = config.forumSanctionChannelId || process.env.FORUM_SANCTION_CHANNEL_ID;
-                const forumChannel = interaction.guild.channels.cache.get(forumId);
-                if (!forumChannel) return interaction.editReply({ content: '❌ Canale Forum non trovato.' });
-
-                const embed = new EmbedBuilder().setColor('#D32F2F').setDescription(`👤 **Utente:** ${rbxUser}\n🔨 **Tipo:** ${type}\n📌 **Motivo:** ${reason}\n⏳ **Durata:** ${duration}\n👮 **Staff:** ${interaction.user}\n📎 **Prove:** ${proof}`);
-                if (avatarUrl) embed.setThumbnail(avatarUrl);
-
-                await forumChannel.threads.create({ name: `Sanzione - ${rbxUser} [${type}]`, message: { embeds: [embed] } });
-                await interaction.editReply({ content: '✅ Sanzione registrata!' });
-                return;
-            }
-        } catch (error) {
-            console.error('Errore invio modale:', error);
-            if (interaction.deferred) await interaction.editReply({ content: '❌ Si è verificato un errore durante l\'elaborazione del modulo.' });
-        }
-    }
-
-    // --- 2.3 SELEZIONE TICKET ---
-    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // FIX APPLICATO QUI
-        try {
-            const selectedValue = interaction.values[0];
-            const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
-            const categoryLabel = optionSelected ? optionSelected.label : 'Assistenza';
-
-            const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
-            const permissionOverwrites = [
-                { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
-            ];
-
-            const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
-            if (staffRole) {
-                permissionOverwrites.push({ id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] });
+            if (!hasRole && !isAdmin) {
+                return interaction.reply({ content: '❌ Non hai il ruolo autorizzato per utilizzare questo comando!', ephemeral: true });
             }
 
-            let categoryId = config.ticketCategoryId || process.env.TICKET_CATEGORY_ID;
+            const modal = new ModalBuilder().setCustomId('sanzione_modal').setTitle('Sanzione Utente Roblox');
+            const usernameInput = new TextInputBuilder().setCustomId('roblox_username').setLabel('Nome utente Roblox').setStyle(TextInputStyle.Short).setRequired(true);
+            const typeInput = new TextInputBuilder().setCustomId('sanzione_type').setLabel('Tipo di sanzione (Warn / Ban)').setStyle(TextInputStyle.Short).setRequired(true);
+            const reasonInput = new TextInputBuilder().setCustomId('sanzione_reason').setLabel('Motivo').setStyle(TextInputStyle.Paragraph).setRequired(true);
+            const durationInput = new TextInputBuilder().setCustomId('sanzione_duration').setLabel('Durata (es. Permanent, 7 Giorni)').setStyle(TextInputStyle.Short).setRequired(true);
+            const proofInput = new TextInputBuilder().setCustomId('sanzione_proof').setLabel('Prove (Screenshot / Clip Link)').setStyle(TextInputStyle.Paragraph).setRequired(true);
 
-            const ticketChannel = await interaction.guild.channels.create({
-                name: `${selectedValue}-${interaction.user.username.toLowerCase()}`,
-                type: ChannelType.GuildText,
-                parent: categoryId || null,
-                permissionOverwrites: permissionOverwrites
-            });
-
-            const ticketEmbed = new EmbedBuilder()
-                .setTitle(`🎫 Ticket: ${categoryLabel}`)
-                .setDescription(`Benvenuto ${interaction.user}, uno staffer ti assisterà a breve.`)
-                .setColor('#3498DB');
-
-            const buttons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('ticket_claim').setLabel('Prendi in carico').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('ticket_release').setLabel('Rilascia').setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder().setCustomId('ticket_close').setLabel('Chiudi Ticket').setStyle(ButtonStyle.Danger)
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(usernameInput),
+                new ActionRowBuilder().addComponents(typeInput),
+                new ActionRowBuilder().addComponents(reasonInput),
+                new ActionRowBuilder().addComponents(durationInput),
+                new ActionRowBuilder().addComponents(proofInput)
             );
 
-            const pingContent = staffRole ? `<@&${staffRole.id}> | ${interaction.user}` : `${interaction.user}`;
-            await ticketChannel.send({ content: pingContent, embeds: [ticketEmbed], components: [buttons] });
-            await interaction.editReply({ content: `✅ Ticket creato correttamente: ${ticketChannel}` });
-        } catch (error) {
-            console.error('ERRORE CREAZIONE TICKET:', error);
-            await interaction.editReply({ content: `❌ Impossibile creare il ticket! Assicurati che il bot abbia i permessi di **Gestire i Canali** e che l'ID della categoria sia corretto.` });
+            await interaction.showModal(modal);
+            return;
         }
+    }
+
+    // --- 2.2 INVIO MODALE SANZIONI ---
+    if (interaction.isModalSubmit() && interaction.customId === 'sanzione_modal') {
+        await interaction.deferReply({ ephemeral: true });
+
+        const rbxUser = interaction.fields.getTextInputValue('roblox_username');
+        const type = interaction.fields.getTextInputValue('sanzione_type');
+        const reason = interaction.fields.getTextInputValue('sanzione_reason');
+        const duration = interaction.fields.getTextInputValue('sanzione_duration');
+        const proof = interaction.fields.getTextInputValue('sanzione_proof');
+
+        let avatarUrl = '';
+        try {
+            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [rbxUser], excludeBannedUsers: false }, { timeout: 5000 });
+            if (userRes.data.data.length > 0) {
+                const userId = userRes.data.data[0].id;
+                const headshotRes = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`, { timeout: 5000 });
+                if (headshotRes.data.data.length > 0) avatarUrl = headshotRes.data.data[0].imageUrl;
+            }
+        } catch (e) {
+            console.error('Errore avatar Roblox (continuo senza avatar):', e.message);
+        }
+
+        const currentDate = new Date().toLocaleDateString('it-IT');
+        const sanctionText = `╔══════════════════════════════╗\n📋 SANZIONE UTENTE\n╚══════════════════════════════╝\n\n👤 Nome utente: ${rbxUser}\n\n🔨 Tipo di sanzione: ${type}\n\n📌 Motivo: ${reason}\n\n⏳ Durata: ${duration}\n\n👮 Staff Responsabile: ${interaction.user}\n\n📅 Data: ${currentDate}\n\n📎 Prove: ${proof}`;
+
+        const forumId = config.forumSanctionChannelId || process.env.FORUM_SANCTION_CHANNEL_ID;
+        const forumChannel = interaction.guild.channels.cache.get(forumId);
+        if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
+            return interaction.editReply({ content: '❌ Canale Forum per le sanzioni non trovato.' });
+        }
+
+        const embed = new EmbedBuilder().setColor('#D32F2F').setDescription(sanctionText);
+        if (avatarUrl) embed.setThumbnail(avatarUrl);
+
+        await forumChannel.threads.create({ name: `Sanzione - ${rbxUser} [${type}]`, message: { embeds: [embed] } });
+        await interaction.editReply({ content: '✅ Sanzione registrata con successo nel Forum!' });
         return;
     }
 
-    // --- 2.4 BOTTONI TICKET ---
+    // --- 2.3 SELEZIONE CATEGORIA TICKET ---
+    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
+        await interaction.deferReply({ ephemeral: true });
+
+        const selectedValue = interaction.values[0];
+        const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
+        const categoryLabel = optionSelected ? optionSelected.label : 'Assistenza';
+
+        const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+
+        const permissionOverwrites = [
+            { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
+        ];
+
+        const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
+        if (staffRole) {
+            permissionOverwrites.push({ id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] });
+        }
+
+        let categoryId = null;
+        const catIdToUse = config.ticketCategoryId || process.env.TICKET_CATEGORY_ID;
+        if (catIdToUse) {
+            const catChannel = interaction.guild.channels.cache.get(catIdToUse);
+            if (catChannel && catChannel.type === ChannelType.GuildCategory) categoryId = catChannel.id;
+        }
+
+        const ticketChannel = await interaction.guild.channels.create({
+            name: `${selectedValue}-${interaction.user.username.toLowerCase()}`,
+            type: ChannelType.GuildText,
+            parent: categoryId,
+            permissionOverwrites: permissionOverwrites
+        });
+
+        const ticketEmbed = new EmbedBuilder()
+            .setTitle(`🎫 Ticket: ${categoryLabel}`)
+            .setDescription(`Benvenuto ${interaction.user}, uno staffer prenderà in carico la tua richiesta a breve.\nSpiega nel dettaglio la tua esigenza.`)
+            .addFields(
+                { name: '📌 Categoria', value: `\`${categoryLabel}\``, inline: true },
+                { name: '👤 Utente', value: `${interaction.user}`, inline: true },
+                { name: '🛡️ Stato', value: '`In attesa di uno staffer`', inline: false }
+            )
+            .setColor('#3498DB');
+
+        const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_claim').setLabel('Prendi in carico').setEmoji({ id: '1525053084261417067' }).setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('ticket_release').setLabel('Rilascia').setEmoji({ id: '1524956959944474624' }).setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('ticket_close').setLabel('Chiudi Ticket').setEmoji('🔒').setStyle(ButtonStyle.Secondary)
+        );
+
+        const pingContent = staffRole ? `<@&${staffRole.id}> | ${interaction.user}` : `${interaction.user}`;
+        await ticketChannel.send({ content: pingContent, embeds: [ticketEmbed], components: [buttons] });
+        await interaction.editReply({ content: `✅ Ticket creato correttamente: ${ticketChannel}` });
+        return;
+    }
+
+    // --- 2.4 GESTIONE MODALE RECENSIONE ---
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('review_modal_')) {
+        await interaction.deferReply({ ephemeral: true });
+
+        const staffId = interaction.customId.replace('review_modal_', '');
+        const stars = interaction.fields.getTextInputValue('review_stars');
+        const reason = interaction.fields.getTextInputValue('review_reason');
+
+        const reviewChannel = interaction.client.channels.cache.get(REVIEW_CHANNEL_ID);
+        if (reviewChannel) {
+            const reviewEmbed = new EmbedBuilder()
+                .setTitle('⭐ Nuova Recensione Ticket')
+                .addFields(
+                    { name: '👤 Utente', value: `${interaction.user}`, inline: true },
+                    { name: '👮 Staffer', value: `<@${staffId}>`, inline: true },
+                    { name: '⭐ Valutazione', value: `\`${stars} / 5\` ⭐`, inline: false },
+                    { name: '💬 Motivazione', value: reason, inline: false }
+                )
+                .setColor('#F1C40F')
+                .setTimestamp();
+
+            await reviewChannel.send({ embeds: [reviewEmbed] }).catch(() => {});
+        }
+
+        await interaction.editReply({ content: '✅ Grazie mille! La tua recensione è stata inviata con successo.' });
+        return;
+    }
+
+    // --- 2.5 PULSANTI DI GESTIONE TICKET ---
     if (interaction.isButton()) {
-        try {
-            const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'ticket_acknowledge_close'];
-            if (!validActions.includes(interaction.customId)) return;
+        const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny', 'ticket_acknowledge_close'];
+        if (!validActions.includes(interaction.customId)) return;
 
-            if (interaction.customId === 'ticket_acknowledge_close') {
-                await interaction.deferUpdate();
-                await chiudiTicketProcesso(interaction);
-                return;
+        if (interaction.customId === 'review_accept' || interaction.customId === 'review_deny') {
+            if (interaction.customId === 'review_deny') {
+                return await interaction.update({ content: '❌ Richiesta di recensione rifiutata.', components: [] });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral }); // FIX APPLICATO QUI
-            
-            const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
-            const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
-            
-            if (!isStaff) return await interaction.editReply({ content: '❌ Non hai i permessi per gestire questo ticket!' });
-
-            const topic = interaction.channel.topic || '';
-
-            if (interaction.customId === 'ticket_claim') {
-                if (topic.startsWith('Claimed:')) return await interaction.editReply({ content: '⚠️ Questo ticket è già stato preso in carico!' });
-                await interaction.channel.setTopic(`Claimed: ${interaction.user.id}`).catch(() => {});
-                await interaction.editReply({ content: '📌 Ticket preso in carico con successo!' });
-                await interaction.channel.send({ embeds: [new EmbedBuilder().setDescription(`📌 Ticket preso in carico da ${interaction.user}`).setColor('#2ECC71')] });
-                return;
+            const embed = interaction.message.embeds[0];
+            const staffField = embed.fields.find(f => f.name.includes('Staffer'));
+            let staffId = '';
+            if (staffField) {
+                const match = staffField.value.match(/<@!?(\d+)>/);
+                if (match) staffId = match[1];
             }
 
-            if (interaction.customId === 'ticket_release') {
-                if (!topic.startsWith('Claimed:')) return await interaction.editReply({ content: '⚠️ Questo ticket non è attualmente in carico a nessuno.' });
-                await interaction.channel.setTopic('').catch(() => {});
-                await interaction.editReply({ content: '🔓 Ticket rilasciato con successo.' });
-                return;
+            const modal = new ModalBuilder()
+                .setCustomId(`review_modal_${staffId || 'unknown'}`)
+                .setTitle('Lascia una Recensione');
+
+            const starsInput = new TextInputBuilder()
+                .setCustomId('review_stars')
+                .setLabel('Voto da 1 a 5 stelle')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setMaxLength(1);
+
+            const reasonInput = new TextInputBuilder()
+                .setCustomId('review_reason')
+                .setLabel('Motivo / Commento')
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(starsInput),
+                new ActionRowBuilder().addComponents(reasonInput)
+            );
+
+            await interaction.showModal(modal);
+            return;
+        }
+
+        if (interaction.customId === 'ticket_acknowledge_close') {
+            await interaction.deferUpdate();
+            await interaction.channel.send({ content: '🔒 Chiusura del ticket in corso e invio richiesta recensione...' });
+            await chiudiTicketProcesso(interaction);
+            return;
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+        const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
+        if (!isStaff) {
+            return await interaction.editReply({ content: '❌ Non hai i permessi per gestire i ticket!' });
+        }
+
+        const topic = interaction.channel.topic || '';
+
+        if (interaction.customId === 'ticket_claim') {
+            if (topic.startsWith('Claimed:')) {
+                return await interaction.editReply({ content: '⚠️ Questo ticket è già stato preso in carico!' });
             }
 
-            if (interaction.customId === 'ticket_close') {
-                await interaction.editReply({ content: '⚠️ Richiesta di chiusura avviata. Controlla il messaggio nel canale.' });
-                const ackButton = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('ticket_acknowledge_close').setLabel('Conferma Chiusura Definitiva').setStyle(ButtonStyle.Danger)
-                );
-                await interaction.channel.send({ embeds: [new EmbedBuilder().setDescription(`Richiesta di chiusura da parte di ${interaction.user}\n\nClicca sul bottone per confermare e archiviare.`).setColor('#E67E22')], components: [ackButton] });
-                return;
+            await interaction.channel.setTopic(`Claimed: ${interaction.user.id}`).catch(() => {});
+            await interaction.editReply({ content: '📌 Ticket preso in carico con successo!' });
+
+            const claimEmbed = new EmbedBuilder()
+                .setTitle('📌 TICKET PRESO IN CARICO')
+                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff per evitare interferenze o confusioni durante l'assistenza.`)
+                .setColor('#2ECC71')
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [claimEmbed] });
+            return;
+        }
+
+        if (interaction.customId === 'ticket_release') {
+            if (!topic.startsWith('Claimed:')) {
+                return await interaction.editReply({ content: '⚠️ Questo ticket non è attualmente in carico a nessuno.' });
             }
-        } catch (error) {
-            console.error('Errore gestione bottone ticket:', error);
-            if (interaction.deferred) await interaction.editReply({ content: '❌ Si è verificato un errore durante l\'azione.' });
+
+            const currentClaimerId = topic.replace('Claimed: ', '').trim();
+            if (interaction.user.id !== currentClaimerId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                return await interaction.editReply({ content: `❌ Solo <@${currentClaimerId}> (o un Admin) può rilasciare questo ticket!` });
+            }
+
+            await interaction.channel.setTopic('').catch(() => {});
+            await interaction.editReply({ content: '🔓 Ticket rilasciato con successo.' });
+
+            const releaseEmbed = new EmbedBuilder()
+                .setTitle('🔓 TICKET RILASCIATO')
+                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile e può essere presa in carico da qualsiasi altro membro dello staff.`)
+                .setColor('#95A5A6')
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [releaseEmbed] });
+            return;
+        }
+
+        if (interaction.customId === 'ticket_close') {
+            await interaction.editReply({ content: '⚠️ Richiesta di chiusura avviata. Controlla il messaggio nel canale.' });
+
+            const warningEmbed = new EmbedBuilder()
+                .setTitle('⚠️ AVVISO DI CHIUSURA TICKET')
+                .setDescription(`Questo ticket sta per essere chiuso da ${interaction.user}.\n\nSi prega di prendere visione di tutte le informazioni fornite prima di procedere con l'archiviazione definitiva. Clicca sul pulsante sottostante per confermare la presa visione.`)
+                .setColor('#E67E22')
+                .setTimestamp();
+
+            const ackButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_acknowledge_close').setLabel('Prendi visione').setStyle(ButtonStyle.Primary)
+            );
+
+            await interaction.channel.send({ embeds: [warningEmbed], components: [ackButton] });
+            return;
         }
     }
 });
 
-// Funzione di chiusura sicura ottimizzata
 async function chiudiTicketProcesso(interaction) {
+    const topic = interaction.channel.topic || '';
     try {
-        console.log(`[TICKET] Avviata chiusura canale: ${interaction.channel.name}`);
-        
-        const messages = await interaction.channel.messages.fetch({ limit: 50 }).catch(() => null);
-        let transcriptText = `--- TRANSCRIPT: ${interaction.channel.name} ---\nChiuso da: ${interaction.user.tag}\n\n`;
+        const messages = await interaction.channel.messages.fetch({ limit: 100 });
+        const sortedMessages = Array.from(messages.values()).reverse();
 
-        if (messages) {
-            Array.from(messages.values()).reverse().forEach(msg => {
-                transcriptText += `[${new Date(msg.createdTimestamp).toLocaleTimeString()}] ${msg.author.tag}: ${msg.content}\n`;
-            });
+        let ticketCreatorId = null;
+        const firstMsg = sortedMessages.find(m => m.embeds.length > 0 && m.embeds[0].title?.startsWith('🎫 Ticket:'));
+        if (firstMsg) {
+            const userField = firstMsg.embeds[0].fields.find(f => f.name.includes('Utente'));
+            if (userField) {
+                const match = userField.value.match(/<@!?(\d+)>/);
+                if (match) ticketCreatorId = match[1];
+            }
         }
 
+        let claimedStaffId = 'Nessuno';
+        if (topic.startsWith('Claimed:')) {
+            claimedStaffId = topic.replace('Claimed:', '').trim();
+        }
+
+        let transcriptText = `--- TRANSCRIPT TICKET: ${interaction.channel.name} ---\n`;
+        transcriptText += `Chiuso da: ${interaction.user.tag} (${interaction.user.id})\n`;
+        transcriptText += `Staffer Assegnato: ${claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno'}\n`;
+        transcriptText += `Data: ${new Date().toLocaleString('it-IT')}\n`;
+        transcriptText += `--------------------------------------------------------\n\n`;
+
+        sortedMessages.forEach(msg => {
+            const time = new Date(msg.createdTimestamp).toLocaleString('it-IT');
+            transcriptText += `[${time}] ${msg.author.tag}: ${msg.content}\n`;
+            if (msg.attachments.size > 0) {
+                msg.attachments.forEach(att => {
+                    transcriptText += `   [Allegato: ${att.url}]\n`;
+                });
+            }
+        });
+
         const buffer = Buffer.from(transcriptText, 'utf-8');
-        const safeChannelName = interaction.channel.name.replace(/[^a-zA-Z0-9-_]/g, '_');
-        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${safeChannelName}.txt` });
-        
+        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${interaction.channel.name}.txt` });
         const transcriptChannel = interaction.guild.channels.cache.get(TRANSCRIPT_CHANNEL_ID);
+
         if (transcriptChannel) {
-            await transcriptChannel.send({ content: `📄 Transcript del canale \`${interaction.channel.name}\``, files: [attachment] }).catch(() => {});
+            const logEmbed = new EmbedBuilder()
+                .setTitle(`📄 Transcript Ticket Chiuso`)
+                .addFields(
+                    { name: 'Canale', value: interaction.channel.name, inline: true },
+                    { name: 'Chiuso da', value: `${interaction.user}`, inline: true },
+                    { name: 'Staffer', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: true }
+                )
+                .setColor('#E74C3C')
+                .setTimestamp();
+
+            await transcriptChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(() => {});
+        }
+
+        if (ticketCreatorId) {
+            try {
+                const ticketUser = await interaction.client.users.fetch(ticketCreatorId);
+                if (ticketUser) {
+                    const reviewEmbed = new EmbedBuilder()
+                        .setTitle('✨ Il tuo ticket è stato chiuso!')
+                        .setDescription(`Il tuo ticket su **${interaction.guild.name}** è stato chiuso.\nTi va di lasciare una recensione per valutare il supporto ricevuto?`)
+                        .addFields(
+                            { name: '👮 Staffer Assegnato', value: claimedStaffId !== 'Nessuno' ? `<@${claimedStaffId}>` : 'Nessuno', inline: false }
+                        )
+                        .setColor('#3498DB')
+                        .setFooter({ text: 'Clicca su Accetta per lasciare una valutazione.' });
+
+                    const reviewButtons = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('review_accept').setLabel('Accetta').setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId('review_deny').setLabel('Rifiuta').setStyle(ButtonStyle.Danger)
+                    );
+
+                    await ticketUser.send({ embeds: [reviewEmbed], components: [reviewButtons] }).catch(() => {});
+                }
+            } catch (dmErr) {
+                console.error('Impossibile inviare il DM all\'utente per la recensione:', dmErr);
+            }
         }
 
         setTimeout(async () => {
             await interaction.channel.delete().catch(() => {});
-        }, 1500);
-
+        }, 3000);
     } catch (error) {
-        console.error('[TICKET] Errore critico chiusura:', error);
+        console.error('Errore chiusura ticket:', error);
     }
 }
 
