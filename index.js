@@ -38,9 +38,9 @@ try {
     };
 }
 
-// --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
+// --- SERVER EXPRESS PER L'HOSTING (RENDER) ---
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
     res.send('Il Bot di Italian Country RP è online e funzionante!');
@@ -290,7 +290,6 @@ assistenza dal nostro staff. )
 
         let avatarUrl = '';
         try {
-            // Aggiunto timeout di sicurezza per evitare blocchi infiniti in caso di lag dell'API Roblox
             const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [rbxUser], excludeBannedUsers: false }, { timeout: 5000 });
             if (userRes.data.data.length > 0) {
                 const userId = userRes.data.data[0].id;
@@ -298,7 +297,7 @@ assistenza dal nostro staff. )
                 if (headshotRes.data.data.length > 0) avatarUrl = headshotRes.data.data[0].imageUrl;
             }
         } catch (e) {
-            console.error('Errore avatar Roblox (continuo senza avatar):', e.message);
+            console.error('Errore avatar Roblox:', e.message);
         }
 
         const currentDate = new Date().toLocaleDateString('it-IT');
@@ -407,7 +406,6 @@ assistenza dal nostro staff. )
         const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny', 'ticket_acknowledge_close'];
         if (!validActions.includes(interaction.customId)) return;
 
-        // Gestione accettazione o rifiuto recensione dai DM
         if (interaction.customId === 'review_accept' || interaction.customId === 'review_deny') {
             if (interaction.customId === 'review_deny') {
                 return await interaction.update({ content: '❌ Richiesta di recensione rifiutata.', components: [] });
@@ -447,10 +445,9 @@ assistenza dal nostro staff. )
             return;
         }
 
-        // Pulsante "Prendi visione" per la chiusura del ticket
         if (interaction.customId === 'ticket_acknowledge_close') {
             await interaction.deferUpdate();
-            await interaction.channel.send({ content: '🔒 Chiusura del ticket in corso e invio richiesta recensione...' });
+            await interaction.channel.send({ content: '🔒 Chiusura del ticket in corso e generazione transcript...' });
             await chiudiTicketProcesso(interaction);
             return;
         }
@@ -465,7 +462,6 @@ assistenza dal nostro staff. )
 
         const topic = interaction.channel.topic || '';
 
-        // 1. PRENDI IN CARICO
         if (interaction.customId === 'ticket_claim') {
             if (topic.startsWith('Claimed:')) {
                 return await interaction.editReply({ content: '⚠️ Questo ticket è già stato preso in carico!' });
@@ -476,7 +472,7 @@ assistenza dal nostro staff. )
 
             const claimEmbed = new EmbedBuilder()
                 .setTitle('📌 TICKET PRESO IN CARICO')
-                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff per evitare interferenze o confusioni durante l'assistenza.`)
+                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff.`)
                 .setColor('#2ECC71')
                 .setTimestamp();
 
@@ -484,7 +480,6 @@ assistenza dal nostro staff. )
             return;
         }
 
-        // 2. RILASCIA
         if (interaction.customId === 'ticket_release') {
             if (!topic.startsWith('Claimed:')) {
                 return await interaction.editReply({ content: '⚠️ Questo ticket non è attualmente in carico a nessuno.' });
@@ -500,7 +495,7 @@ assistenza dal nostro staff. )
 
             const releaseEmbed = new EmbedBuilder()
                 .setTitle('🔓 TICKET RILASCIATO')
-                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile e può essere presa in carico da qualsiasi altro membro dello staff.`)
+                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile per lo staff.`)
                 .setColor('#95A5A6')
                 .setTimestamp();
 
@@ -508,13 +503,12 @@ assistenza dal nostro staff. )
             return;
         }
 
-        // 3. CHIUDI TICKET
         if (interaction.customId === 'ticket_close') {
             await interaction.editReply({ content: '⚠️ Richiesta di chiusura avviata. Controlla il messaggio nel canale.' });
 
             const warningEmbed = new EmbedBuilder()
                 .setTitle('⚠️ AVVISO DI CHIUSURA TICKET')
-                .setDescription(`Questo ticket sta per essere chiuso da ${interaction.user}.\n\nSi prega di prendere visione di tutte le informazioni fornite prima di procedere con l'archiviazione definitiva. Clicca sul pulsante sottostante per confermare la presa visione.`)
+                .setDescription(`Questo ticket sta per essere chiuso da ${interaction.user}.\n\nClicca sul pulsante sottostante per confermare la presa visione e procedere con l'archiviazione.`)
                 .setColor('#E67E22')
                 .setTimestamp();
 
@@ -528,11 +522,21 @@ assistenza dal nostro staff. )
     }
 });
 
-// Funzione ausiliaria per la chiusura effettiva del ticket e salvataggio transcript
+// Funzione robusta per la chiusura del ticket e generazione del transcript
 async function chiudiTicketProcesso(interaction) {
     const topic = interaction.channel.topic || '';
     try {
-        const messages = await interaction.channel.messages.fetch({ limit: 100 });
+        console.log(`[TICKET] Inizio chiusura e transcript per: ${interaction.channel.name}`);
+        
+        const messages = await interaction.channel.messages.fetch({ limit: 100 }).catch(err => {
+            console.error('[TICKET] Errore fetch messaggi:', err);
+            return null;
+        });
+
+        if (!messages) {
+            return await interaction.channel.delete().catch(() => {});
+        }
+
         const sortedMessages = Array.from(messages.values()).reverse();
 
         let ticketCreatorId = null;
@@ -567,7 +571,9 @@ async function chiudiTicketProcesso(interaction) {
         });
 
         const buffer = Buffer.from(transcriptText, 'utf-8');
-        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${interaction.channel.name}.txt` });
+        const safeChannelName = interaction.channel.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${safeChannelName}.txt` });
+        
         const transcriptChannel = interaction.guild.channels.cache.get(TRANSCRIPT_CHANNEL_ID);
 
         if (transcriptChannel) {
@@ -581,7 +587,11 @@ async function chiudiTicketProcesso(interaction) {
                 .setColor('#E74C3C')
                 .setTimestamp();
 
-            await transcriptChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(() => {});
+            await transcriptChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(err => {
+                console.error('[TICKET] Errore invio file transcript:', err);
+            });
+        } else {
+            console.error(`[TICKET] ERRORE: Canale transcript ID ${TRANSCRIPT_CHANNEL_ID} non trovato!`);
         }
 
         if (ticketCreatorId) {
@@ -605,15 +615,16 @@ async function chiudiTicketProcesso(interaction) {
                     await ticketUser.send({ embeds: [reviewEmbed], components: [reviewButtons] }).catch(() => {});
                 }
             } catch (dmErr) {
-                console.error('Impossibile inviare il DM all\'utente per la recensione:', dmErr);
+                console.error('[TICKET] Impossibile inviare DM all\'utente:', dmErr);
             }
         }
 
         setTimeout(async () => {
-            await interaction.channel.delete().catch(() => {});
+            await interaction.channel.delete().catch(err => console.error('[TICKET] Errore eliminazione canale:', err));
         }, 3000);
+
     } catch (error) {
-        console.error('Errore chiusura ticket:', error);
+        console.error('[TICKET] Errore critico chiusura ticket:', error);
     }
 }
 
