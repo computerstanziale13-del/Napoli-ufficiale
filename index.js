@@ -53,7 +53,7 @@ app.listen(port, () => {
 const TRANSCRIPT_CHANNEL_ID = '1521562807051616448';
 const REVIEW_CHANNEL_ID = '1527384115522044075';
 const SANCTION_ROLE_ID = '1518557087347638403';
-const NEW_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1531402756269805770/1531402786598682824/IMG_2695.png?ex=6a69157c&is=6a67c3fc&hm=b39a6f487454937505d86f1c7180b0d0bddaa16e3c3e1f603ed24951fc392345&';
+const NEW_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1530001472492933191/1534298026107994223/ChatGPT_Image_1_ago_2026_18_44_18.png?ex=6a739de3&is=6a724c63&hm=704cfa9ba489b0917266989715a2f5bcd4acb9d502f3dcb80414c681c9c2f058&';
 
 const client = new Client({
     intents: [
