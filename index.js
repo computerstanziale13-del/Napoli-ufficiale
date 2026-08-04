@@ -65,7 +65,7 @@ const client = new Client({
     ]
 });
 
-// --- GESTIONE ERRORI GLOBALI PER EVITARE CRASH (EXIT CODE 1) ---
+// --- GESTIONE ERRORI GLOBALI PER EVITARE CRASH ---
 client.on('error', error => {
     console.error('⚠️ Errore del client Discord catturato:', error);
 });
@@ -290,14 +290,15 @@ assistenza dal nostro staff. )
 
         let avatarUrl = '';
         try {
-            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [rbxUser], excludeBannedUsers: false });
+            // Aggiunto timeout di sicurezza per evitare blocchi infiniti in caso di lag dell'API Roblox
+            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [rbxUser], excludeBannedUsers: false }, { timeout: 5000 });
             if (userRes.data.data.length > 0) {
                 const userId = userRes.data.data[0].id;
-                const headshotRes = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`);
+                const headshotRes = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`, { timeout: 5000 });
                 if (headshotRes.data.data.length > 0) avatarUrl = headshotRes.data.data[0].imageUrl;
             }
         } catch (e) {
-            console.error('Errore avatar Roblox:', e);
+            console.error('Errore avatar Roblox (continuo senza avatar):', e.message);
         }
 
         const currentDate = new Date().toLocaleDateString('it-IT');
@@ -323,7 +324,7 @@ assistenza dal nostro staff. )
 
         const selectedValue = interaction.values[0];
         const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
-        const categoryLabel = optionSelected.label;
+        const categoryLabel = optionSelected ? optionSelected.label : 'Assistenza';
 
         const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
 
@@ -507,7 +508,7 @@ assistenza dal nostro staff. )
             return;
         }
 
-        // 3. CHIUDI TICKET (Messaggio di avviso con pulsante "Prendi visione")
+        // 3. CHIUDI TICKET
         if (interaction.customId === 'ticket_close') {
             await interaction.editReply({ content: '⚠️ Richiesta di chiusura avviata. Controlla il messaggio nel canale.' });
 
