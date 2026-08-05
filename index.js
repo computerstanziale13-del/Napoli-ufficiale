@@ -51,8 +51,8 @@ app.listen(port, () => {
     console.log(`🌐 Server web in ascolto sulla porta ${port}`);
 });
 
-const TRANSCRIPT_CHANNEL_ID = '1521562807051616448';
-const REVIEW_CHANNEL_ID = '1527384115522044075';
+const TRANSCRIPT_CHANNEL_ID = '1532817281061752902';
+const REVIEW_CHANNEL_ID = '1532817189412012245';
 const SANCTION_ROLE_ID = '1518557087347638403';
 const NEW_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1530001472492933191/1534298026107994223/ChatGPT_Image_1_ago_2026_18_44_18.png?ex=6a739de3&is=6a724c63&hm=704cfa9ba489b0917266989715a2f5bcd4acb9d502f3dcb80414c681c9c2f058&';
 
