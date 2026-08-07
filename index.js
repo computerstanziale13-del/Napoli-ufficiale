@@ -20,7 +20,6 @@ const {
 const axios = require('axios');
 const express = require('express');
 
-// Carica config.json se esiste (in locale), altrimenti usa le variabili d'ambiente di Render
 let config;
 try {
     config = require('./config.json');
@@ -39,7 +38,6 @@ try {
     };
 }
 
-// --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -66,7 +64,6 @@ const client = new Client({
     ]
 });
 
-// Gestione errori globali per evitare crash
 client.on('error', error => console.error('⚠️ Errore del client Discord:', error));
 process.on('unhandledRejection', error => console.error('⚠️ Promessa non gestita:', error));
 
@@ -375,7 +372,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 2.3 SELEZIONE CATEGORIA TICKET (VERSIONE SICURA CON MESSAGGI DIVERSI) ---
+    // --- 2.3 SELEZIONE CATEGORIA TICKET (APERTURA ISTANTANEA E MESSAGGI DIVERSI) ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -424,7 +421,7 @@ assistenza dal nostro staff. )
             } else if (selectedValue === 'gestione') {
                 specificDescription = 'Hai aperto un ticket di **Gestione**. Specifica chiaramente il motivo del reclamo o la contestazione della sanzione fornendo le prove.';
             } else if (selectedValue === 'partnership') {
-                specificDescription = 'Hai aperto un ticket per **Richiesta Partnership**. Invia il link del tuo server e i requisiti/dettagli della collaborazione.';
+                specificDescription = '🤝 **Richiesta Partnership avviata!**\n\nPer procedere con la valutazione, si prega di inviare:\n• **Requisiti rispettati** del vostro server\n• **Link d\'invito o ID del server** per visionare le statistiche.\n\nUno staffer interverrà al più presto.';
             } else {
                 specificDescription = 'Spiega nel dettaglio la tua esigenza e attendi l\'arrivo dello staff.';
             }
