@@ -375,75 +375,93 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 2.3 SELEZIONE CATEGORIA TICKET (CON MESSAGGI PRESET DIVERSI PER CIASCUNA) ---
+    // --- 2.3 SELEZIONE CATEGORIA TICKET (VERSIONE SICURA CON MESSAGGI DIVERSI) ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        const selectedValue = interaction.values[0];
-        const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
-        const categoryLabel = optionSelected ? optionSelected.label : 'Assistenza';
+        try {
+            const selectedValue = interaction.values[0];
+            const optionSelected = interaction.component.options.find(o => o.value === selectedValue);
+            const categoryLabel = optionSelected ? optionSelected.label : 'Assistenza';
 
-        const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+            const staffRoleIdToUse = config?.staffRoleId || process.env.STAFF_ROLE_ID;
 
-        const permissionOverwrites = [
-            { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
-        ];
+            const permissionOverwrites = [
+                { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
+            ];
 
-        const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
-        if (staffRole) {
-            permissionOverwrites.push({ id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] });
+            if (staffRoleIdToUse) {
+                const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
+                if (staffRole) {
+                    permissionOverwrites.push({ id: staffRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] });
+                }
+            }
+
+            let categoryId = null;
+            const catIdToUse = config?.ticketCategoryId || process.env.TICKET_CATEGORY_ID;
+            if (catIdToUse) {
+                const catChannel = interaction.guild.channels.cache.get(catIdToUse);
+                if (catChannel && catChannel.type === ChannelType.GuildCategory) {
+                    categoryId = catChannel.id;
+                }
+            }
+
+            const ticketChannel = await interaction.guild.channels.create({
+                name: `${selectedValue}-${interaction.user.username.toLowerCase()}`,
+                type: ChannelType.GuildText,
+                parent: categoryId,
+                permissionOverwrites: permissionOverwrites
+            });
+
+            let specificDescription = '';
+            if (selectedValue === 'gradi-alti') {
+                specificDescription = 'Hai aperto un ticket per **Assistenza Gradi Alti**. Si prega di esporre dettagliatamente la questione strategica o amministrativa. Uno dei responsabili risponderà a breve.';
+            } else if (selectedValue === 'bug') {
+                specificDescription = 'Hai aperto un ticket per **Segnalazione Bug**. Per favore, descrivi il malfunzionamento riscontrato e **allega screenshot o video** per permetterci di verificare.';
+            } else if (selectedValue === 'game') {
+                specificDescription = 'Hai aperto un ticket per **Assistenza Game**. Scrivi qui il tuo dubbio sul regolamento o il problema riscontrato in-game.';
+            } else if (selectedValue === 'gestione') {
+                specificDescription = 'Hai aperto un ticket di **Gestione**. Specifica chiaramente il motivo del reclamo o la contestazione della sanzione fornendo le prove.';
+            } else if (selectedValue === 'partnership') {
+                specificDescription = 'Hai aperto un ticket per **Richiesta Partnership**. Invia il link del tuo server e i requisiti/dettagli della collaborazione.';
+            } else {
+                specificDescription = 'Spiega nel dettaglio la tua esigenza e attendi l\'arrivo dello staff.';
+            }
+
+            const ticketEmbed = new EmbedBuilder()
+                .setTitle(`🎫 Ticket: ${categoryLabel}`)
+                .setDescription(`Benvenuto ${interaction.user}!\n\n${specificDescription}\n\nLo staff è stato avvisato e prenderà in carico la richiesta al più presto.`)
+                .addFields(
+                    { name: '📌 Categoria', value: `\`${categoryLabel}\``, inline: true },
+                    { name: '👤 Utente', value: `${interaction.user}`, inline: true },
+                    { name: '🛡️ Stato', value: '`In attesa di uno staffer`', inline: false }
+                )
+                .setColor('#3498DB');
+
+            const buttons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_claim').setLabel('Prendi in carico').setEmoji({ id: '1525053084261417067' }).setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('ticket_release').setLabel('Rilascia').setEmoji({ id: '1524956959944474624' }).setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('ticket_close').setLabel('Chiudi Ticket').setEmoji('🔒').setStyle(ButtonStyle.Secondary)
+            );
+
+            let pingContent = `${interaction.user}`;
+            if (staffRoleIdToUse) {
+                const staffRole = interaction.guild.roles.cache.get(staffRoleIdToUse);
+                if (staffRole) {
+                    pingContent = `<@&${staffRole.id}> | ${interaction.user}`;
+                }
+            }
+
+            await ticketChannel.send({ content: pingContent, embeds: [ticketEmbed], components: [buttons] });
+            await interaction.editReply({ content: `✅ Ticket creato correttamente: ${ticketChannel}` });
+
+        } catch (error) {
+            console.error('❌ Errore critico durante la creazione del ticket:', error);
+            try {
+                await interaction.editReply({ content: '❌ Si è verificato un errore durante la creazione del ticket. Controlla la console di Render per i dettagli.' });
+            } catch (e) {}
         }
-
-        let categoryId = null;
-        const catIdToUse = config.ticketCategoryId || process.env.TICKET_CATEGORY_ID;
-        if (catIdToUse) {
-            const catChannel = interaction.guild.channels.cache.get(catIdToUse);
-            if (catChannel && catChannel.type === ChannelType.GuildCategory) categoryId = catChannel.id;
-        }
-
-        const ticketChannel = await interaction.guild.channels.create({
-            name: `${selectedValue}-${interaction.user.username.toLowerCase()}`,
-            type: ChannelType.GuildText,
-            parent: categoryId,
-            permissionOverwrites: permissionOverwrites
-        });
-
-        // Messaggio preimpostato specifico in base alla categoria scelta
-        let specificDescription = '';
-        if (selectedValue === 'gradi-alti') {
-            specificDescription = 'Hai aperto un ticket per **Assistenza Gradi Alti**. Si prega di esporre dettagliatamente la questione strategica o amministrativa. Uno dei responsabili risponderà a breve.';
-        } else if (selectedValue === 'bug') {
-            specificDescription = 'Hai aperto un ticket per **Segnalazione Bug**. Per favore, descrivi il malfunzionamento riscontrato e **allega screenshot o video** per permetterci di verificare.';
-        } else if (selectedValue === 'game') {
-            specificDescription = 'Hai aperto un ticket per **Assistenza Game**. Scrivi qui il tuo dubbio sul regolamento o il problema riscontrato in-game.';
-        } else if (selectedValue === 'gestione') {
-            specificDescription = 'Hai aperto un ticket di **Gestione**. Specifica chiaramente il motivo del reclamo o la contestazione della sanzione fornendo le prove.';
-        } else if (selectedValue === 'partnership') {
-            specificDescription = 'Hai aperto un ticket per **Richiesta Partnership**. Invia il link del tuo server e i requisiti/dettagli della collaborazione.';
-        } else {
-            specificDescription = 'Spiega nel dettaglio la tua esigenza e attendi l\'arrivo dello staff.';
-        }
-
-        const ticketEmbed = new EmbedBuilder()
-            .setTitle(`🎫 Ticket: ${categoryLabel}`)
-            .setDescription(`Benvenuto ${interaction.user}!\n\n${specificDescription}\n\nLo staff è stato avvisato e prenderà in carico la richiesta al più presto.`)
-            .addFields(
-                { name: '📌 Categoria', value: `\`${categoryLabel}\``, inline: true },
-                { name: '👤 Utente', value: `${interaction.user}`, inline: true },
-                { name: '🛡️ Stato', value: '`In attesa di uno staffer`', inline: false }
-            )
-            .setColor('#3498DB');
-
-        const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_claim').setLabel('Prendi in carico').setEmoji({ id: '1525053084261417067' }).setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('ticket_release').setLabel('Rilascia').setEmoji({ id: '1524956959944474624' }).setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('ticket_close').setLabel('Chiudi Ticket').setEmoji('🔒').setStyle(ButtonStyle.Secondary)
-        );
-
-        const pingContent = staffRole ? `<@&${staffRole.id}> | ${interaction.user}` : `${interaction.user}`;
-        await ticketChannel.send({ content: pingContent, embeds: [ticketEmbed], components: [buttons] });
-        await interaction.editReply({ content: `✅ Ticket creato correttamente: ${ticketChannel}` });
         return;
     }
 
