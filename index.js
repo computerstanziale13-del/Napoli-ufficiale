@@ -19,6 +19,7 @@ const {
 } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Carica config.json se esiste (in locale), altrimenti usa le variabili d'ambiente di Render
 let config;
@@ -31,6 +32,7 @@ try {
         staffRoleId: process.env.STAFF_ROLE_ID,
         ticketCategoryId: process.env.TICKET_CATEGORY_ID,
         forumSanctionChannelId: process.env.FORUM_SANCTION_CHANNEL_ID,
+        geminiApiKey: process.env.GEMINI_API_KEY,
         channels: {
             regolamento: process.env.REGOLAMENTO_CHANNEL_ID,
             annunci: process.env.ANNUNCI_CHANNEL_ID,
@@ -38,6 +40,10 @@ try {
         }
     };
 }
+
+// Inizializzazione Gemini AI
+const geminiKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
+const genAI = geminiKey ? new GoogleGenerativeAI(geminiKey) : null;
 
 // --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
 const app = express();
@@ -66,14 +72,9 @@ const client = new Client({
     ]
 });
 
-// --- GESTIONE ERRORI GLOBALI PER EVITARE CRASH ---
-client.on('error', error => {
-    console.error('⚠️ Errore del client Discord catturato:', error);
-});
-
-process.on('unhandledRejection', error => {
-    console.error('⚠️ Promessa non gestita catturata:', error);
-});
+// Gestione errori globali per evitare crash
+client.on('error', error => console.error('⚠️ Errore del client Discord:', error));
+process.on('unhandledRejection', error => console.error('⚠️ Promessa non gestita:', error));
 
 client.once('clientReady', async () => {
     console.log(`🤖 Bot avviato con successo come ${client.user.tag}`);
@@ -85,7 +86,18 @@ client.once('clientReady', async () => {
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
         new SlashCommandBuilder()
             .setName('sanzione')
-            .setDescription('Apre il modulo per sanzionare un utente su Roblox')
+            .setDescription('Apre il modulo per sanzionare un utente su Roblox'),
+        new SlashCommandBuilder()
+            .setName('aggiungi')
+            .setDescription('Aggiungi un utente specifico a questo ticket')
+            .addUserOption(option => 
+                option.setName('utente')
+                    .setDescription('Seleziona l\'utente da aggiungere')
+                    .setRequired(true)
+            ),
+        new SlashCommandBuilder()
+            .setName('attesa')
+            .setDescription('Imposta il ticket in attesa disabilitando l\'auto-chiusura')
     ];
 
     const tokenToUse = process.env.TOKEN || config.token;
@@ -119,8 +131,7 @@ client.on('guildMemberAdd', async member => {
         .setTitle(`✨ NUOVO CITTADINO — Benvenuto su Italian Country RP ✨`)
         .setDescription(
             `🤝 **Benvenuto in Città, ${member.user.username}!**\n\n` +
-            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Country RP**! La tua presenza arricchisce la nostra visualizzazione. Sei pronto a forgiare il tuo destino, avviare la tua attività o scalare i vertici delle forze dell'ordine? 🌟\n\n` +
-            `Ci teniamo a ricordarti che siamo una community basata sul rispetto reciproco e sull'alta qualità delle dinamiche di gioco. Di seguito trovi una panoramica completa per integrarti al meglio all'interno della nostra community.\n\n` +
+            `Ciao ${member}, ti diamo il benvenuto ufficiale all'interno della community di **Italian Country RP**!\n\n` +
             `──────────────────────────`
         )
         .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
@@ -141,19 +152,10 @@ client.on('guildMemberAdd', async member => {
                 inline: false
             },
             {
-                name: '🗺️ PRIMI PASSI E LINEE GUIDA ESSENZIALI',
-                value: `Per evitare sanzioni amministrative o corporali durante le sessioni di gioco, ti invitiamo caldamente a seguire la scaletta d'inserimento:\n\n` +
-                       `1️⃣ **Consulta i Documenti Civili:** La conoscenza delle regole è fondamentale per una convivenza civile e divertente.\n` +
-                       `2️⃣ **Resta Aggiornato:** Attiva le notifiche sui canali principali per non perderti nessun annuncio da parte dei Gradi Alti.\n` +
-                       `3️⃣ **Apri un Ticket se necessiti d'aiuto:** Lo staff è costantemente a tua disposizione nel centro d'assistenza dedicato.`,
-                inline: false
-            },
-            {
                 name: '🔗 GUIDA AI CANALI UTILI DA CONSULTARE',
-                value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale** (Leggilo attentamente)\n` +
-                       `• <#${annChannel}> — 📢 **Annunci Principali** (Aggiornamenti in tempo reale)\n` +
-                       `• <#${partChannel}> — 🤝 **Canale Partnership** (Le nostre collaborazioni)\n\n` +
-                       `*Ti auguriamo una permanenza indimenticabile e un Roleplay ricco di scene mozzafiato! Lo staff di Italian Country RP.*`,
+                value: `• <#${regChannel}> — 📖 **Regolamento Ufficiale**\n` +
+                       `• <#${annChannel}> — 📢 **Annunci Principali**\n` +
+                       `• <#${partChannel}> — 🤝 **Canale Partnership**`,
                 inline: false
             }
         )
@@ -163,11 +165,56 @@ client.on('guildMemberAdd', async member => {
 });
 
 /* ===================================================
-   2. GESTIONE UNICA DELLE INTERAZIONI
+   2. RISPOSTA AUTOMATICA IA NEI TICKET
+   =================================================== */
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+
+    // L'IA interviene nei canali di ticket non presi in carico
+    const isTicketChannel = message.channel.parentAndIndex && message.channel.parentId === (config.ticketCategoryId || process.env.TICKET_CATEGORY_ID);
+    const isTicketByName = message.channel.name && (
+        message.channel.name.startsWith('gradi-alti-') || 
+        message.channel.name.startsWith('bug-') || 
+        message.channel.name.startsWith('game-') || 
+        message.channel.name.startsWith('gestione-') || 
+        message.channel.name.startsWith('partnership-')
+    );
+
+    if ((isTicketChannel || isTicketByName) && genAI) {
+        const topic = message.channel.topic || '';
+        if (topic.startsWith('Claimed:')) return; // Non risponde se il ticket è stato preso in carico dallo staff
+
+        try {
+            await message.channel.sendTyping();
+            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            
+            const prompt = `Sei l'Assistente Virtuale di "Italian Country RP", un server Discord Roleplay di Roblox. 
+Rispondi in modo gentile, formale e conciso al messaggio dell'utente. 
+Informa l'utente che lo staff è stato avvisato e risponderà a breve.
+Messaggio dell'utente: "${message.content}"`;
+
+            const result = await model.generateContent(prompt);
+            const responseText = result.response.text();
+
+            const aiEmbed = new EmbedBuilder()
+                .setTitle('🤖 Assistente Virtuale — Italian Country RP')
+                .setDescription(responseText)
+                .setColor('#3498DB')
+                .setFooter({ text: 'Risposta automatica IA • Uno staffer in carne ed ossa arriverà a breve!' });
+
+            await message.reply({ embeds: [aiEmbed] });
+        } catch (err) {
+            console.error('Errore nella generazione risposta IA:', err);
+        }
+    }
+});
+
+/* ===================================================
+   3. GESTIONE UNICA DELLE INTERAZIONI
    =================================================== */
 client.on('interactionCreate', async interaction => {
-    
-    // --- 2.1 COMANDI SLASH ---
+
+    // --- 3.1 COMANDI SLASH ---
     if (interaction.isChatInputCommand()) {
 
         if (interaction.commandName === 'setup-ticket') {
@@ -203,19 +250,19 @@ assistenza dal nostro staff. )
 <:partnership:1521589317854691504>
 \`\`\`
 ( | Partnership
-> Richieste di collaborazione ufficiale tra server. (Includere info e requisiti). )
+> Richieste di collaborazione ufficiale tra server. )
 \`\`\`
 
 <:bug:1524464370594222242>
 \`\`\`
 ( | Bug Report
-> Segnalazioni malfunzionamenti. (Allegare sempre prove/screenshot). )
+> Segnalazioni malfunzionamenti. Allegare sempre prove. )
 \`\`\`
 
 <:gestione:1524465990635884597>
 \`\`\`
 ( | Gestione
-> Reclami, contestazioni sanzioni e segnalazioni gravi. (Allegare ID e prove video). )
+> Reclami, contestazioni sanzioni e segnalazioni gravi. )
 \`\`\`
 
 \`\`\`
@@ -277,9 +324,70 @@ assistenza dal nostro staff. )
             await interaction.showModal(modal);
             return;
         }
+
+        if (interaction.commandName === 'aggiungi') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+            const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+            const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
+
+            if (!isStaff) {
+                return await interaction.editReply({ content: '❌ Non hai i permessi di Staff per utilizzare questo comando!' });
+            }
+
+            const targetUser = interaction.options.getUser('utente');
+            try {
+                await interaction.channel.permissionOverwrites.edit(targetUser.id, {
+                    ViewChannel: true,
+                    SendMessages: true,
+                    AttachFiles: true
+                });
+
+                const addEmbed = new EmbedBuilder()
+                    .setTitle('👤 UTENTE AGGIUNTO AL TICKET')
+                    .setDescription(`L'utente ${targetUser} è stato aggiunto con successo a questo ticket da ${interaction.user}.`)
+                    .setColor('#2ECC71')
+                    .setTimestamp();
+
+                await interaction.channel.send({ embeds: [addEmbed] });
+                await interaction.editReply({ content: `✅ L'utente ${targetUser.tag} è stato aggiunto al canale.` });
+            } catch (err) {
+                console.error('Errore aggiunta utente al ticket:', err);
+                await interaction.editReply({ content: '❌ Errore durante la modifica dei permessi.' });
+            }
+            return;
+        }
+
+        if (interaction.commandName === 'attesa') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+            const staffRoleIdToUse = config.staffRoleId || process.env.STAFF_ROLE_ID;
+            const isStaff = interaction.member && (interaction.member.roles.cache.has(staffRoleIdToUse) || interaction.member.permissions.has(PermissionFlagsBits.Administrator));
+
+            if (!isStaff) {
+                return await interaction.editReply({ content: '❌ Non hai i permessi di Staff per utilizzare questo comando!' });
+            }
+
+            const currentTopic = interaction.channel.topic || '';
+            const newTopic = currentTopic.includes('[In Attesa]') 
+                ? currentTopic.replace('[In Attesa]', '').trim() 
+                : `${currentTopic} [In Attesa]`.trim();
+
+            await interaction.channel.setTopic(newTopic).catch(() => {});
+
+            const attesaEmbed = new EmbedBuilder()
+                .setTitle('⏳ TICKET IN ATTESA')
+                .setDescription(`Questo ticket è stato contrassegnato come **In Attesa** da ${interaction.user}.\n\n📌 La chiusura automatica è stata disattivata fino a nuove disposizioni.`)
+                .setColor('#F39C12')
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [attesaEmbed] });
+            await interaction.editReply({ content: '✅ Stato del ticket aggiornato con successo a "In Attesa".' });
+            return;
+        }
     }
 
-    // --- 2.2 INVIO MODALE SANZIONI ---
+    // --- 3.2 INVIO MODALE SANZIONI ---
     if (interaction.isModalSubmit() && interaction.customId === 'sanzione_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -298,7 +406,7 @@ assistenza dal nostro staff. )
                 if (headshotRes.data.data.length > 0) avatarUrl = headshotRes.data.data[0].imageUrl;
             }
         } catch (e) {
-            console.error('Errore avatar Roblox (continuo senza avatar):', e.message);
+            console.error('Errore avatar Roblox:', e.message);
         }
 
         const currentDate = new Date().toLocaleDateString('it-IT');
@@ -318,7 +426,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 2.3 SELEZIONE CATEGORIA TICKET ---
+    // --- 3.3 SELEZIONE CATEGORIA TICKET ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -374,7 +482,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 2.4 GESTIONE MODALE RECENSIONE ---
+    // --- 3.4 GESTIONE MODALE RECENSIONE ---
     if (interaction.isModalSubmit() && interaction.customId.startsWith('review_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -402,7 +510,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 2.5 PULSANTI DI GESTIONE TICKET ---
+    // --- 3.5 PULSANTI DI GESTIONE TICKET ---
     if (interaction.isButton()) {
         const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny', 'ticket_acknowledge_close'];
         if (!validActions.includes(interaction.customId)) return;
@@ -473,7 +581,7 @@ assistenza dal nostro staff. )
 
             const claimEmbed = new EmbedBuilder()
                 .setTitle('📌 TICKET PRESO IN CARICO')
-                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff per evitare interferenze o confusioni durante l'assistenza.`)
+                .setDescription(`Questo ticket è stato ufficialmente preso in carico da ${interaction.user}.\n\n⚠️ **Attenzione:** Da questo momento in poi, la gestione di questa chat è affidata esclusivamente a questo membro dello staff.`)
                 .setColor('#2ECC71')
                 .setTimestamp();
 
@@ -496,7 +604,7 @@ assistenza dal nostro staff. )
 
             const releaseEmbed = new EmbedBuilder()
                 .setTitle('🔓 TICKET RILASCIATO')
-                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile e può essere presa in carico da qualsiasi altro membro dello staff.`)
+                .setDescription(`Il ticket è stato rilasciato da ${interaction.user}.\n\nℹ️ **Informazione:** La chat è nuovamente disponibile per tutto lo staff.`)
                 .setColor('#95A5A6')
                 .setTimestamp();
 
@@ -599,7 +707,7 @@ async function chiudiTicketProcesso(interaction) {
                     await ticketUser.send({ embeds: [reviewEmbed], components: [reviewButtons] }).catch(() => {});
                 }
             } catch (dmErr) {
-                console.error('Impossibile inviare il DM all\'utente per la recensione:', dmErr);
+                console.error('Impossibile inviare il DM all\'utente:', dmErr);
             }
         }
 
