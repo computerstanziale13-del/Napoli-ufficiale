@@ -19,7 +19,6 @@ const {
 } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Carica config.json se esiste (in locale), altrimenti usa le variabili d'ambiente di Render
 let config;
@@ -32,7 +31,6 @@ try {
         staffRoleId: process.env.STAFF_ROLE_ID,
         ticketCategoryId: process.env.TICKET_CATEGORY_ID,
         forumSanctionChannelId: process.env.FORUM_SANCTION_CHANNEL_ID,
-        geminiApiKey: process.env.GEMINI_API_KEY,
         channels: {
             regolamento: process.env.REGOLAMENTO_CHANNEL_ID,
             annunci: process.env.ANNUNCI_CHANNEL_ID,
@@ -40,10 +38,6 @@ try {
         }
     };
 }
-
-// Inizializzazione Gemini AI
-const geminiKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
-const genAI = geminiKey ? new GoogleGenerativeAI(geminiKey) : null;
 
 // --- SERVER EXPRESS PER L'HOSTING (RENDER / UPTIMEROBOT) ---
 const app = express();
@@ -165,56 +159,11 @@ client.on('guildMemberAdd', async member => {
 });
 
 /* ===================================================
-   2. RISPOSTA AUTOMATICA IA NEI TICKET
-   =================================================== */
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-
-    // L'IA interviene nei canali di ticket non presi in carico
-    const isTicketChannel = message.channel.parentAndIndex && message.channel.parentId === (config.ticketCategoryId || process.env.TICKET_CATEGORY_ID);
-    const isTicketByName = message.channel.name && (
-        message.channel.name.startsWith('gradi-alti-') || 
-        message.channel.name.startsWith('bug-') || 
-        message.channel.name.startsWith('game-') || 
-        message.channel.name.startsWith('gestione-') || 
-        message.channel.name.startsWith('partnership-')
-    );
-
-    if ((isTicketChannel || isTicketByName) && genAI) {
-        const topic = message.channel.topic || '';
-        if (topic.startsWith('Claimed:')) return; // Non risponde se il ticket è stato preso in carico dallo staff
-
-        try {
-            // Utilizza gemini-2.0-flash per rispondere immediatamente senza inviare lo stato di digitazione
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-            
-            const prompt = `Sei l'Assistente Virtuale di "Italian Country RP", un server Discord Roleplay di Roblox. 
-Rispondi in modo gentile, formale e conciso al messaggio dell'utente. 
-Informa l'utente che lo staff è stato avvisato e risponderà a breve.
-Messaggio dell'utente: "${message.content}"`;
-
-            const result = await model.generateContent(prompt);
-            const responseText = result.response.text();
-
-            const aiEmbed = new EmbedBuilder()
-                .setTitle('🤖 Assistente Virtuale — Italian Country RP')
-                .setDescription(responseText)
-                .setColor('#3498DB')
-                .setFooter({ text: 'Risposta automatica IA • Uno staffer in carne ed ossa arriverà a breve!' });
-
-            await message.reply({ embeds: [aiEmbed] });
-        } catch (err) {
-            console.error('Errore nella generazione risposta IA:', err);
-        }
-    }
-});
-
-/* ===================================================
-   3. GESTIONE UNICA DELLE INTERAZIONI
+   2. GESTIONE UNICA DELLE INTERAZIONI
    =================================================== */
 client.on('interactionCreate', async interaction => {
 
-    // --- 3.1 COMANDI SLASH ---
+    // --- 2.1 COMANDI SLASH ---
     if (interaction.isChatInputCommand()) {
 
         if (interaction.commandName === 'setup-ticket') {
@@ -387,7 +336,7 @@ assistenza dal nostro staff. )
         }
     }
 
-    // --- 3.2 INVIO MODALE SANZIONI ---
+    // --- 2.2 INVIO MODALE SANZIONI ---
     if (interaction.isModalSubmit() && interaction.customId === 'sanzione_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -426,7 +375,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 3.3 SELEZIONE CATEGORIA TICKET ---
+    // --- 2.3 SELEZIONE CATEGORIA TICKET (CON MESSAGGI PRESET DIVERSI PER CIASCUNA) ---
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -460,9 +409,25 @@ assistenza dal nostro staff. )
             permissionOverwrites: permissionOverwrites
         });
 
+        // Messaggio preimpostato specifico in base alla categoria scelta
+        let specificDescription = '';
+        if (selectedValue === 'gradi-alti') {
+            specificDescription = 'Hai aperto un ticket per **Assistenza Gradi Alti**. Si prega di esporre dettagliatamente la questione strategica o amministrativa. Uno dei responsabili risponderà a breve.';
+        } else if (selectedValue === 'bug') {
+            specificDescription = 'Hai aperto un ticket per **Segnalazione Bug**. Per favore, descrivi il malfunzionamento riscontrato e **allega screenshot o video** per permetterci di verificare.';
+        } else if (selectedValue === 'game') {
+            specificDescription = 'Hai aperto un ticket per **Assistenza Game**. Scrivi qui il tuo dubbio sul regolamento o il problema riscontrato in-game.';
+        } else if (selectedValue === 'gestione') {
+            specificDescription = 'Hai aperto un ticket di **Gestione**. Specifica chiaramente il motivo del reclamo o la contestazione della sanzione fornendo le prove.';
+        } else if (selectedValue === 'partnership') {
+            specificDescription = 'Hai aperto un ticket per **Richiesta Partnership**. Invia il link del tuo server e i requisiti/dettagli della collaborazione.';
+        } else {
+            specificDescription = 'Spiega nel dettaglio la tua esigenza e attendi l\'arrivo dello staff.';
+        }
+
         const ticketEmbed = new EmbedBuilder()
             .setTitle(`🎫 Ticket: ${categoryLabel}`)
-            .setDescription(`Benvenuto ${interaction.user}, uno staffer prenderà in carico la tua richiesta a breve.\nSpiega nel dettaglio la tua esigenza.`)
+            .setDescription(`Benvenuto ${interaction.user}!\n\n${specificDescription}\n\nLo staff è stato avvisato e prenderà in carico la richiesta al più presto.`)
             .addFields(
                 { name: '📌 Categoria', value: `\`${categoryLabel}\``, inline: true },
                 { name: '👤 Utente', value: `${interaction.user}`, inline: true },
@@ -482,7 +447,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 3.4 GESTIONE MODALE RECENSIONE ---
+    // --- 2.4 GESTIONE MODALE RECENSIONE ---
     if (interaction.isModalSubmit() && interaction.customId.startsWith('review_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -510,7 +475,7 @@ assistenza dal nostro staff. )
         return;
     }
 
-    // --- 3.5 PULSANTI DI GESTIONE TICKET ---
+    // --- 2.5 PULSANTI DI GESTIONE TICKET ---
     if (interaction.isButton()) {
         const validActions = ['ticket_claim', 'ticket_release', 'ticket_close', 'review_accept', 'review_deny', 'ticket_acknowledge_close'];
         if (!validActions.includes(interaction.customId)) return;
