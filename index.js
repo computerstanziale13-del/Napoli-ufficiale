@@ -186,7 +186,9 @@ client.on('messageCreate', async message => {
 
         try {
             await message.channel.sendTyping();
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            
+            // Usa il modello gemini-2.5-flash
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             
             const prompt = `Sei l'Assistente Virtuale di "Italian Country RP", un server Discord Roleplay di Roblox. 
 Rispondi in modo gentile, formale e conciso al messaggio dell'utente. 
