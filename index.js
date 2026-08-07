@@ -185,10 +185,8 @@ client.on('messageCreate', async message => {
         if (topic.startsWith('Claimed:')) return; // Non risponde se il ticket è stato preso in carico dallo staff
 
         try {
-            await message.channel.sendTyping();
-            
-            // Usa il modello gemini-2.5-flash
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            // Utilizza gemini-2.0-flash per rispondere immediatamente senza inviare lo stato di digitazione
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
             
             const prompt = `Sei l'Assistente Virtuale di "Italian Country RP", un server Discord Roleplay di Roblox. 
 Rispondi in modo gentile, formale e conciso al messaggio dell'utente. 
